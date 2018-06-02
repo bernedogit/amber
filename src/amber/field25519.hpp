@@ -1,8 +1,6 @@
 #ifndef AMBER_FIELD25519_HPP
 #define AMBER_FIELD25519_HPP
 
-//debug
-#include <iostream>
 /*
  * Copyright (c) 2017, Pelayo Bernedo.
  * All rights reserved.
@@ -66,7 +64,7 @@ namespace amber {  inline namespace AMBER_SONAME {
 // AMBER_LIMB_BITS will be set to 128 if using GCC and to 64 otherwise.
 
 
-//#define AMBER_LIMB_BITS 64
+#define AMBER_LIMB_BITS 64
 
 #ifndef AMBER_LIMB_BITS
 	#if SIZE_MAX < 0xFFFFFFFFFFFFFFFF
@@ -705,22 +703,19 @@ inline void square (Fe64 &res, const Fe64 &f)
 inline void mul_small (Fe64 &res, const Fe64 &a, uint32_t bs)
 {
 	uint64_t c, b = bs;
-	uint64_t a0, a1, r0, r1;
-	c = 0;
-	for (int i = 0; i < 5; ++i) {
-		a0 = a.v[i] & mask26;
-		a1 = a.v[i] >> 26;
-		c += a0 * b;    r0 = c & mask26;     c >>= 26;
-		c += a1 * b;    r1 = c & mask25;     c >>= 25;
-		res.v[i] = (r1 << 26) | r0;
-	}
-
-	c = res.v[0] + c * 19;      res.v[0] = c & mask51;  c >>= 51;
+	c = (a.v[0] & mask26) * b;  res.v[0] = c & mask26;  c >>= 26;
+	c += (a.v[0] >> 26) * b;    res.v[0] |= (c & mask25) << 26;  c >>= 25;
+	c += (a.v[1] & mask26) * b; res.v[1] = c & mask26;  c >>= 26;
+	c += (a.v[1] >> 26) * b;    res.v[1] |= (c & mask25) << 26;  c >>= 25;
+	c += (a.v[2] & mask26) * b; res.v[2] = c & mask26;  c >>= 26;
+	c += (a.v[2] >> 26) * b;    res.v[2] |= (c & mask25) << 26;  c >>= 25;
+	c += (a.v[3] & mask26) * b; res.v[3] = c & mask26;  c >>= 26;
+	c += (a.v[3] >> 26) * b;    res.v[3] |= (c & mask25) << 26;  c >>= 25;
+	c += (a.v[4] & mask26) * b; res.v[4] = c & mask26;  c >>= 26;
+	c += (a.v[4] >> 26) * b;    res.v[4] |= (c & mask25) << 26;  c >>= 25;
+	c = res.v[0] + c * 19;      res.v[0] = c & mask51;   c >>= 51;
 	res.v[1] += c;
 }
-
-
-
 
 inline void mul (Fe64 &res, const Fe64 &f, const Fe64 &g)
 {

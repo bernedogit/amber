@@ -42,7 +42,7 @@ install: all
 	-rm $(INSTALLLIB)/libamber.$(SO)
 	ln -s $(INSTALLLIB)/libamber$(SOV) $(INSTALLLIB)/libamber.$(SO)
 	install -d $(INSTALLINCLUDE)/amber
-	install $(DEPS_libamber) $(INSTALLINCLUDE)/amber
+	install $(FULL_LIB_HEADERS) $(INSTALLINCLUDE)/amber
 	$(CPL2B)
 
 
@@ -392,6 +392,4 @@ FULL_TARGETS =  bin/amber bin/blake2_test bin/blakerng bin/blockbuf_test bin/gen
     bin/speed_test bin/symmetric_test bin/tamper bin/twcmp bin/tweetcmd  \
     bin/wipe
 full_targets: $(FULL_TARGETS)
-
-
-
+FULL_LIB_HEADERS = $(DEPS_libamber) 

@@ -665,7 +665,7 @@ void read_pub_header (std::streambuf *io, const Cu25519Pair &rx,
 	*keypos = -1;
 	for (i = 0; i < 256; ++i) {
 		if (io->sgetn ((char*)ct, sizeof ct) != sizeof ct) {
-			throw_rte(_("This message is not addressed to me. End of file reached."));
+			throw_rte(_("This message is not addressed to me."));
 		}
 		Handshake hs (hsg);
 		if (hs.read_message (ct, sizeof ct, pay) != 0) {
@@ -682,7 +682,7 @@ void read_pub_header (std::streambuf *io, const Cu25519Pair &rx,
 		break;
 	}
 	if (*keypos == -1) {
-		throw_rte (_("This message is not addressed to me. Tried up to 256 recipients."));
+		throw_rte (_("This message is not addressed to me."));
 	}
 	for (int i = *keypos + 1; i < *nrx; ++i) {
 		if (io->sgetn ((char*)ct, sizeof ct) != sizeof ct) {

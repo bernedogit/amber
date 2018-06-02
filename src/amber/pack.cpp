@@ -392,7 +392,7 @@ static void read_index (std::istream &is, std::vector<Item> &index, bool *compre
 
 // This is C90/C++98 compliant. The one below is C99/C++11.
 static const char time_format[] = "%Y-%m-%d %H:%M:%S %z";
-//static const char time_format[] = "%F %T %z";
+// static const char time_format[] = "%F %T %z";
 
 static void pack_list (std::istream &is)
 {

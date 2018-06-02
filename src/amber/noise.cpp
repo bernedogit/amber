@@ -3,10 +3,6 @@
 #include "hasopt.hpp"
 #include "poly1305.hpp"
 
-
-//debug
-#include "misc.hpp"
-
 namespace amber {   inline namespace AMBER_SONAME {
 
 EXPORTFN
@@ -220,8 +216,8 @@ inline void append (std::vector<uint8_t> &out, const uint8_t *data, size_t ndata
 }
 
 
-void Handshake::initialize (const char *protolet, const Pattern *pattern,
-                            size_t npat, const uint8_t *prologue, 
+void Handshake::initialize (const char *protolet, const Pattern *pattern, 
+							size_t npat, const uint8_t *prologue, 
 							size_t plen, bool elligated, bool fallback)
 {
 	char protocol[100];
