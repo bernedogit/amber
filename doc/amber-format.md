@@ -593,7 +593,7 @@ triplet contains the following triplets:
  - maketag(sig_comment,length_val) contains the comments attached to the
    signature. This triplet is optional.
 
-The following triplets are optionally include in the sig_group triplet if the
+The following triplets are optionally included in the sig_group triplet if the
 `--add-certs` option was given.
 
  - maketag(sig_name,length_val) contains the name of the signer.

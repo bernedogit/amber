@@ -1,8 +1,6 @@
 #ifndef AMBER_FIELD25519_HPP
 #define AMBER_FIELD25519_HPP
 
-//debug
-#include <iostream>
 /*
  * Copyright (c) 2017, Pelayo Bernedo.
  * All rights reserved.

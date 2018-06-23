@@ -1,18 +1,18 @@
 Goals
 =====
 
-The main goal of amber is to have a set of functions for cryptography which 
-are based on portable C++ without using any system dependent customization 
-and with a simple compilation method. I should provide enough functionality 
-to create a file encryption program and at the same time it should be very 
-easy to integrate into an existing program. It should also be easy to use in 
+The main goal of amber is to have a set of functions for cryptography which
+are based on portable C++ without using any system dependent customization
+and with a simple compilation method. I should provide enough functionality
+to create a file encryption program and at the same time it should be very
+easy to integrate into an existing program. It should also be easy to use in
 a secure way.
 
 There are some alternatives that fall short of fulfilling the goals stated
 above.
 
-Libsodium has many source files and quite a complex directory structure. It 
-is not trivial to integrate libsodium into some other project. Its scope is 
+Libsodium has many source files and quite a complex directory structure. It
+is not trivial to integrate libsodium into some other project. Its scope is
 also quite limited. It provides enough primitives but no higher level
 constructs. For instance if you want to encrypt a file you are left on your
 own to compose the different functions for password based key derivation,
@@ -46,12 +46,12 @@ This library has the following properties:
 * Additional cryptographic properties not usually found in other libraries
   (see below).
 
-This library provides all of this, including things unrelated to cryptography 
-but which are needed to create a working tool, like command line handling and 
-catching and displaying exceptions. In addition there is the file `amber.cpp` 
-that contains a utility that provides support for symmetric encryption of 
-files, public key encryption of files, public key signatures, key ring 
-management and packing and unpacking archives of files. It can be used in a 
+This library provides all of this, including things unrelated to cryptography
+but which are needed to create a working tool, like command line handling and
+catching and displaying exceptions. In addition there is the file `amber.cpp`
+that contains a utility that provides support for symmetric encryption of
+files, public key encryption of files, public key signatures, key ring
+management and packing and unpacking archives of files. It can be used in a
 way similar to PGP/GPG.
 
 
@@ -81,7 +81,7 @@ there is a single algorithm for each function. We use:
  * Base 58 for showing keys to the user and accepting them. This can be
    changed by the user to base 16, base 32 or base 64.
 
-
+ * Protocol buffers wire format for storage of keys and archives.
 
 
 Special properties of this library
@@ -120,52 +120,52 @@ other libraries:
    <https://www.imperialviolet.org/2015/05/16/aeads.html> for ideas on how
    this works.
 
- * The encrypting and decrypting ofstream and ifstream classes support random 
-   access when writing or reading the encrypted streams. Users are not 
-   restricted to sequential access. You can seek within the file at any time 
-   to any position, both while writing to or reading from the encrypted file. 
+ * The encrypting and decrypting ofstream and ifstream classes support random
+   access when writing or reading the encrypted streams. Users are not
+   restricted to sequential access. You can seek within the file at any time
+   to any position, both while writing to or reading from the encrypted file.
    Both classes have a simple API and throw exceptions on decryption errors,
    making it difficult to ignore tampering with the files.
 
- * When encrypting for multiple recipients, each packet carries as many 
-   authentication tags as there are recipients. Therefore each recipient can 
-   verify that the data came from the sender and that it was not manipulated 
-   by one of the other recipients. Using a single authentication tag just 
-   makes sure that the packet was written by anyone who knows the secret key 
-   used to authenticate the packet: this could be any of the multiple 
-   receivers and the sender. By using a different tag for each recipient, we 
-   make sure that the recipient knows that the packet has been written by 
-   somebody who knows the secret shared only by this particular receiver and 
-   the sender. Therefore we bring the same authentication guarantee (with 
+ * When encrypting for multiple recipients, each packet carries as many
+   authentication tags as there are recipients. Therefore each recipient can
+   verify that the data came from the sender and that it was not manipulated
+   by one of the other recipients. Using a single authentication tag just
+   makes sure that the packet was written by anyone who knows the secret key
+   used to authenticate the packet: this could be any of the multiple
+   receivers and the sender. By using a different tag for each recipient, we
+   make sure that the recipient knows that the packet has been written by
+   somebody who knows the secret shared only by this particular receiver and
+   the sender. Therefore we bring the same authentication guarantee (with
    repudiation) that is present in the normal one to one encryption to the
    case of multiple receivers.
 
- * The encrypted file is not distinguishable from a random sequence of bits 
-   without having the key or the password. Due to the use of Elligator2 Eve 
-   cannot even figure out if there is something encrypted or not. Therefore 
-   without being able to decrypt the file Eve knows nothing about the sender 
-   or the receivers or if there is any encryption. You can use the encrypted 
-   file in whatever steganographic scheme you may wish without further 
-   modifications. The encrypted file itself will not reveal that there is any 
-   encryption at all. This applies both to the password based version and to 
-   the public key version of the encryption. Note that higher level 
-   protocols may leak information concerning the presence of encryption. If 
-   Alice and Bob are exchanging messages and Mallory observes that there is 
-   a reply for each message then she can tamper with one message and see if 
-   a reply comes or not. If there is a change in the behaviour of Alice and 
-   Bob then Mallory can deduce that the exchanged "random" files were 
-   encrypted. Note also that the bits of the encrypted file are not 
+ * The encrypted file is not distinguishable from a random sequence of bits
+   without having the key or the password. Due to the use of Elligator2 Eve
+   cannot even figure out if there is something encrypted or not. Therefore
+   without being able to decrypt the file Eve knows nothing about the sender
+   or the receivers or if there is any encryption. You can use the encrypted
+   file in whatever steganographic scheme you may wish without further
+   modifications. The encrypted file itself will not reveal that there is any
+   encryption at all. This applies both to the password based version and to
+   the public key version of the encryption. Note that higher level
+   protocols may leak information concerning the presence of encryption. If
+   Alice and Bob are exchanging messages and Mallory observes that there is
+   a reply for each message then she can tamper with one message and see if
+   a reply comes or not. If there is a change in the behaviour of Alice and
+   Bob then Mallory can deduce that the exchanged "random" files were
+   encrypted. Note also that the bits of the encrypted file are not
    distinguishable from pure random. If you embed them within pink noise it
    will be possible to detect that there are two types of noise. A simple
    spectral analysis of the bits may reveal that the surrounding bits have
    some signals in them that are missing in the generated encrypted file.
 
- * The library adds to each packet padding bytes before the encryption and 
-   removes them after decryption. It uses random padding sizes so that the 
-   size of the ciphertext is not the same as the size of the plaintext. The 
-   user can select the amount of padding. If no size is given explicitly by 
-   the user then a random amount of padding is selected. Therefore each time 
-   that you encrypt the same file you will get an encrypted file with a 
+ * The library adds to each packet padding bytes before the encryption and
+   removes them after decryption. It uses random padding sizes so that the
+   size of the ciphertext is not the same as the size of the plaintext. The
+   user can select the amount of padding. If no size is given explicitly by
+   the user then a random amount of padding is selected. Therefore each time
+   that you encrypt the same file you will get an encrypted file with a
    different length. This is a simple measure to make traffic analysis harder.
 
  * The program and library support deniable encryption. The padding bytes are

@@ -189,6 +189,12 @@ bin/twcmp.o bin/twcmp-pic.o : src/twcmp.cpp src/field25519.hpp  \
 bin/tweetamber.o bin/tweetamber-pic.o : src/tweetamber.cpp src/tweetamber.hpp  \
     src/soname.hpp  
 
+bin/tweetamber32.o bin/tweetamber32-pic.o : src/tweetamber32.cpp \
+    src/tweetamber.hpp  src/soname.hpp  
+
+bin/tweetamber64.o bin/tweetamber64-pic.o : src/tweetamber64.cpp \
+    src/tweetamber.hpp  src/soname.hpp  
+
 bin/tweetcmd.o bin/tweetcmd-pic.o : src/tweetcmd.cpp src/tweetamber.hpp  \
     src/soname.hpp  src/misc.hpp  
 

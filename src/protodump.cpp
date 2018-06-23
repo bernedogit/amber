@@ -147,18 +147,18 @@ In mbtouc (char32_t *wc, In s, In end)
 }
 
 
-int ucs_validstr (const char * s, const char *limit)
+bool ucs_validstr (const char * s, const char *limit)
 {
 	char32_t x;
 
-	while (s != limit && *s != 0) {
+	while (s != limit) {
 		s = mbtouc (&x, s, limit);
 		if (x == 0xFFFD) {
-			return 0;
+			return false;
 		}
 	}
 
-	return 1;
+	return true;
 }
 
 

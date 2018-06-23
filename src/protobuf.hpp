@@ -1,4 +1,4 @@
-#ifndef AMBER_PROTOBUF_HPP                   
+#ifndef AMBER_PROTOBUF_HPP
 
 #include "soname.hpp"
 #include "hasopt.hpp"
@@ -403,7 +403,7 @@ void Protobuf_reader::read_int (Wire_type wt, I *i)
 		throw std::logic_error ("This wire type cannot be a uint");
 	}
 
-	if (v > std::numeric_limits<I>::max() && v < std::numeric_limits<I>::min()) {
+	if (v > std::numeric_limits<I>::max() || v < std::numeric_limits<I>::min()) {
 		throw std::out_of_range ("Read an signed that does not fit in the variable.");
 	}
 	*i = v;

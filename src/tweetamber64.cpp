@@ -1092,23 +1092,42 @@ void scrypt_blake2b (uint8_t *dk, size_t dklen,
 
 // Random generator.
 
-static void cxx_random_device (void *vp, size_t n)
+static void cxx_random_device(void *vp, size_t n)
 {
 	static std::random_device rd;
-	typedef std::random_device::result_type Re; // C++11 defines this to be unsigned int.
+	typedef std::random_device::result_type Re;
 
-	// C++11 also defined rd.min() to be 0 and rd.max() to be UINT_MAX.
 	uint8_t *dest = (uint8_t*) vp;
-	Re v;
-	while (n > sizeof(v)) {
-		v = rd();
-		memcpy (dest, &v, sizeof v);
-		n -= sizeof v;
-		dest += sizeof v;
-	}
-	if (n > 0) {
-		v = rd();
-		memcpy (dest, &v, n);
+	if (std::numeric_limits<Re>::max() == rd.max() &&
+	    std::numeric_limits<Re>::min() == rd.min()) {
+		// Sane case: we get a random value with uniform distribution between
+		// 0 and UINT_MAX. Just copy it.
+		while (n > 0) {
+			Re v = rd();
+			if (n > sizeof(v)) {
+				memcpy(dest, &v, sizeof v);
+				n -= sizeof v;
+			} else {
+				memcpy(dest, &v, n);
+				n = 0;
+			}
+		}
+	} else {
+		uintmax_t range = rd.max() - rd.min() + 1;
+		Re low = (range & 0xFF) + rd.min();
+		// Discard values less than low. There are range - range%0x100
+		// possible acceptable values. Each of them of equal probability.
+		// If we mod them by 0x100, we will get bytes with uniform
+		// probability.
+
+		Re val;
+		while (n > 0) {
+			do {
+				val = rd();
+			} while (val < low);
+			*dest++ = val & 0xFF;
+			--n;
+		}
 	}
 }
 
