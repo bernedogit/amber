@@ -58,7 +58,7 @@ bin/amber.o bin/amber-pic.o : src/amber.cpp src/symmetric.hpp  src/inplace.hpp  
     src/blake2.hpp  src/soname.hpp  
 
 bin/blake2.o bin/blake2-pic.o : src/blake2.cpp src/blake2.hpp  src/soname.hpp  \
-    src/hasopt.hpp  
+    src/hasopt.hpp  src/misc.hpp  
 
 bin/blake2_test.o bin/blake2_test-pic.o : src/blake2_test.cpp src/blake2.hpp  \
     src/soname.hpp  src/hasopt.hpp  
@@ -219,10 +219,10 @@ bin/amber-pic: \
     bin/keys-pic.o bin/amber-pic.o bin/hasopt-pic.o bin/misc-pic.o
 
 bin/blake2_test: \
-    bin/blake2_test.o bin/hasopt.o bin/blake2.o
+    bin/misc.o bin/blake2_test.o bin/hasopt.o bin/blake2.o
 
 bin/blake2_test-pic: \
-    bin/blake2_test-pic.o bin/hasopt-pic.o bin/blake2-pic.o
+    bin/misc-pic.o bin/blake2_test-pic.o bin/hasopt-pic.o bin/blake2-pic.o
 
 bin/blakerng: \
     bin/poly1305.o bin/symmetric.o bin/blakerng.o bin/misc.o bin/hasopt.o  \

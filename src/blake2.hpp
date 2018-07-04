@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <string.h>
 #include "soname.hpp"
 
 #include <iostream>
@@ -20,12 +21,79 @@ typedef struct {
 	size_t outlen;                      // digest size
 } blake2b_ctx;
 
+struct Blake2b_param {
+	uint8_t  digest_length; // 1
+	uint8_t  key_length;    // 2
+	uint8_t  fanout;        // 3
+	uint8_t  depth;         // 4
+	uint32_t leaf_length;   // 8
+	uint32_t node_offset;   // 12
+	uint32_t xof_digest_length; // 16
+	uint8_t  node_depth;    // 17
+	uint8_t  inner_length;  // 18
+	uint8_t  reserved[14];  // 32
+	uint8_t  salt[16];      // 48
+	uint8_t  personal[16];  // 64
+
+	Blake2b_param()
+		: digest_length (64)
+		, key_length (0)
+		, fanout (1)
+		, depth (1)
+		, leaf_length (0)
+		, node_offset (0)
+		, xof_digest_length (0)
+		, node_depth (0)
+		, inner_length (0)
+	{
+		memset (reserved, 0, sizeof reserved);
+		memset (salt, 0, sizeof salt);
+		memset (personal, 0, sizeof personal);
+	}
+};
+
+
+struct Blake2s_param {
+	uint8_t  digest_length; // 1
+	uint8_t  key_length;    // 2
+	uint8_t  fanout;        // 3
+	uint8_t  depth;         // 4
+	uint32_t leaf_length;   // 8
+	uint32_t node_offset;   // 12
+	uint16_t xof_digest_length; // 14
+	uint8_t  node_depth;    // 15
+	uint8_t  inner_length;  // 16
+	uint8_t  salt[8];       // 24
+	uint8_t  personal[8];   // 32
+
+	Blake2s_param()
+		: digest_length (64)
+		, key_length (0)
+		, fanout (1)
+		, depth (1)
+		, leaf_length (0)
+		, node_offset (0)
+		, xof_digest_length (0)
+		, node_depth (0)
+		, inner_length (0)
+	{
+		memset (salt, 0, sizeof salt);
+		memset (personal, 0, sizeof personal);
+	}
+};
+
+
 
 // Initialize the hashing context "ctx" with optional key "key".
 //      1 <= outlen <= 64 gives the digest size in bytes.
 //      Secret key (also <= 64 bytes) is optional (keylen = 0).
 int blake2b_init(blake2b_ctx *ctx, size_t outlen,
     const void *key=0, size_t keylen=0);    // secret key
+
+// Initialize using the full parameter block.
+int blake2b_init (blake2b_ctx *ctx, size_t outlen,
+                  const void *key, size_t keylen,
+                  Blake2b_param *par);
 
 // Add "inlen" bytes from "in" into the hash.
 void blake2b_update (blake2b_ctx *ctx,   // context
@@ -139,6 +207,44 @@ public:
 };
 
 
+// The key derivation/extension function. Reset() with the key and desired
+// output length. Then feed the key material with update(). Finally call
+// output() to retrieve the output. If the output is generated blockwise then
+// use output_block().
+class Blake2xb {
+	uint32_t xof_digest_length;
+	uint8_t h0[64];
+	blake2b_ctx bl;
+	bool expanding;
+
+public:
+	Blake2xb (size_t outlen, const void *key=NULL, size_t key_len = 0) {
+		reset (outlen, key, key_len);
+	}
+	// Outlen is the total length of the output.
+	void reset (size_t outlen, const void *key=NULL, size_t key_len = 0);
+	void update (const void *data, size_t n) { blake2b_update (&bl, data, n); }
+	void output_block (uint32_t bn, uint8_t block[64]);
+	void output (uint8_t *dest);
+};
+
+
+class Blake2xs {
+	uint32_t xof_digest_length;
+	uint8_t h0[32];
+	blake2s_ctx bl;
+	bool expanding;
+
+public:
+	Blake2xs (size_t outlen, const void *key=NULL, size_t key_len = 0) {
+		reset (outlen, key, key_len);
+	}
+	// Outlen is the total length of the output.
+	void reset (size_t outlen, const void *key=NULL, size_t key_len = 0);
+	void update (const void *data, size_t n) { blake2s_update (&bl, data, n); }
+	void output_block (uint32_t bn, uint8_t block[32]);
+	void output (uint8_t *dest);
+};
 
 }}
 

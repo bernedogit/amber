@@ -20,11 +20,15 @@ using namespace amber;
 void process_key(const std::string &s, const std::string &pass)
 {
 	uint8_t key[32];
+#if 0
 	// We use shifts==17. This requires 128 MiB of memory.
 	scrypt_blake2b (key, sizeof key, pass.c_str(),  pass.size(),
 	                (const uint8_t*)s.c_str(), s.size(), 17);
 	// It used to be just a wrapper around blake. But it seems better to use
 	// Scrypt to provide a better resistance to cracking.
+#else
+	blake2s (key, sizeof key, pass.c_str(), pass.size(), s.c_str(), s.size());
+#endif
 
 	std::string enc;
 	amber::base32enc (key + 8, 20, enc, true, false, true);

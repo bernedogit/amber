@@ -693,6 +693,7 @@ void incremental_pack (std::fstream &fs, int nf, char **files, bool verbose)
 		struct stat st;
 		if (stat(x.name.c_str(), &st) == 0) {
 			x.mode = st.st_mode;
+			x.exp_size = st.st_size;
 #ifdef _WIN32
 			x.mtime_us = st.st_mtime * 1000000;
 #else
@@ -700,12 +701,14 @@ void incremental_pack (std::fstream &fs, int nf, char **files, bool verbose)
 #endif
 		} else {
 			x.mode = 0;
+			x.exp_size = 0;
 			x.mtime_us = 0;
 		}
 
 		bool found = false;
 		for (unsigned j = 0; j < old_index.size(); ++j) {
-			if (old_index[j].name == x.name && old_index[j].mtime_us >= x.mtime_us && old_index[j].mode == x.mode) {
+			if (old_index[j].name == x.name && old_index[j].mtime_us >= x.mtime_us
+					&& old_index[j].mode == x.mode && old_index[j].exp_size == x.exp_size) {
 				// Skip existing file.
 				x = old_index[j];
 				found = true;

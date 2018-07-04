@@ -91,7 +91,8 @@ void crypto_bzero(void *p, size_t n)
 
 // Encoding in base 32. Not case sensitive and readable over the phone.
 
-static const char letters_enc[] = "ABCDEFGHIJKMNPQRSTUVWXYZ23456789";
+// Endoding of RFC 4648
+static const char letters_enc[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 static char letters_low[32];
 static int8_t letters_dec[256];
 

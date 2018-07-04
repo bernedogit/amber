@@ -65,14 +65,22 @@ text.
 The `encrypt_one()` and `decrypt_one()` are just shorthands for using the
 encryption key as authentication key.
 
+Note that the ciphertext is made of two parts. The first part is the 
+plaintext xored with the output of ChaCha. ChaCha is presumed to be 
+undistinguishable from random and therefore this part is also 
+undistinguishable from random. The second part is the Poly1305 tag. This tag 
+is also undistinguishable from random (see 
+https://crypto.stackexchange.com/questions/17835/are-poly1305-authenticators-d 
+istinguishable-from-random-data). 
+
 
 
 Encryption format
 -----------------
 
-The format of an encrypted file is a header followed by a sequence of 
-packets. The header uses a fixed format. The packets in the sequence are not 
-delimited in any way and without the decryption key it is not even possible 
+The format of an encrypted file is a header followed by a sequence of
+packets. The header uses a fixed format. The packets in the sequence are not
+delimited in any way and without the decryption key it is not even possible
 to separate them.
 
 There is one header type for password based encryption and another one for
@@ -87,11 +95,11 @@ The first 32 bytes of the header are the salt. It will be used as the salt
 for the key derivation from the password. This salt must be generated using
 random bytes.
 
-The decrypting program shall process the decryption password using the 
-`scrypt_blake2b()` function using the salt. This will produce the key k1. The 
-`scrypt_blake2b()` function takes a password, a salt, a *shifts* parameter 
-(which is equal to log₂(N), with N as defined in the Scrypt paper) and 
-produces a key. The salt are the first 32 bytes of the symmetric header. The 
+The decrypting program shall process the decryption password using the
+`scrypt_blake2b()` function using the salt. This will produce the key k1. The
+`scrypt_blake2b()` function takes a password, a salt, a *shifts* parameter
+(which is equal to log₂(N), with N as defined in the Scrypt paper) and
+produces a key. The salt are the first 32 bytes of the symmetric header. The
 shifts parameter is not explicitely encoded. See below for how it is used.
 
 After the salt there is a block of 24 bytes that contains the encrypted value

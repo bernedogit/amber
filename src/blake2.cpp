@@ -1,5 +1,6 @@
 #include "blake2.hpp"
 #include "hasopt.hpp"
+#include "misc.hpp"
 #include <stdexcept>
 
 
@@ -138,6 +139,115 @@ int blake2b_init (blake2b_ctx *ctx, size_t outlen,
 
 	return 0;
 }
+
+
+
+EXPORTFN
+int blake2b_init (blake2b_ctx *ctx, size_t outlen,
+                  const void *key, size_t keylen, Blake2b_param *par)
+{
+	size_t i;
+
+	if (outlen == 0) {
+		throw_rte (_("Blake2b cannot be used to output 0 bytes. %s"), CPPLOC);
+	}
+	if (outlen > 64) {
+		throw_rte (_("Blake2b cannot be output more than 64 bytes. %s"), CPPLOC);
+	}
+	if (keylen > 64) {
+		throw_rte (_("Blake2b cannot be use more than 64 bytes of key. %s"), CPPLOC);
+	}
+
+	for (i = 0; i < 8; i++) {             // state, "param block"
+		ctx->h[i] = blake2b_iv[i];
+	}
+
+	if (par) {
+		par->key_length = keylen;
+		par->digest_length = outlen;
+		uint64_t x = par->digest_length | (uint64_t(par->key_length) << 8)
+				| (uint64_t(par->fanout) << 16) | (uint64_t(par->depth) << 24)
+				| (uint64_t(par->leaf_length) << 32);
+		ctx->h[0] ^= x;
+		ctx->h[1] ^= par->node_offset | (uint64_t(par->xof_digest_length) << 32);
+		x = par->node_depth | (uint64_t(par->inner_length) << 8)
+			| (uint64_t(par->reserved[0]) << 16)
+			| (uint64_t(par->reserved[1]) << 24)
+			| (uint64_t(leget32 (par->reserved + 2)) << 32);
+		ctx->h[2] ^= x;
+		ctx->h[3] ^= leget64 (par->reserved + 6);
+		ctx->h[4] ^= leget64 (par->salt);
+		ctx->h[5] ^= leget64 (par->salt + 8);
+		ctx->h[6] ^= leget64 (par->personal);
+		ctx->h[7] ^= leget64 (par->personal + 8);
+	} else {
+		ctx->h[0] ^= 0x01010000 ^ (keylen << 8) ^ outlen;
+	}
+
+	ctx->t[0] = 0;                      // input count low word
+	ctx->t[1] = 0;                      // input count high word
+	ctx->c = 0;                         // pointer within buffer
+	ctx->outlen = outlen;
+
+	for (i = keylen; i < 128; i++) {    // zero input block
+		ctx->b[i] = 0;
+	}
+	if (keylen > 0) {
+		blake2b_update(ctx, key, keylen);
+		ctx->c = 128;                   // at the end
+	}
+
+	return 0;
+}
+
+
+void Blake2xb::reset (size_t outlen, const void *key, size_t keylen)
+{
+	Blake2b_param par;
+	par.digest_length = 64;
+	par.xof_digest_length = xof_digest_length = outlen;
+	blake2b_init (&bl, 64, key, keylen, &par);
+	expanding = false;
+}
+
+void Blake2xb::output_block (uint32_t bn, uint8_t block[64])
+{
+	if (!expanding) {
+		blake2b_final (&bl, h0);
+		expanding = true;
+	}
+	Blake2b_param par;
+	par.key_length = 0;
+	par.fanout = 0;
+	par.depth = 0;
+	par.leaf_length = 64;
+	par.xof_digest_length = xof_digest_length;
+	par.node_depth = 0;
+	par.inner_length = 64;
+	par.node_offset = bn;
+
+	blake2b_ctx bl;
+	blake2b_init (&bl, 64, NULL, 0, &par);
+	blake2b_update (&bl, h0, 64);
+	blake2b_final (&bl, block);
+}
+
+void Blake2xb::output (uint8_t *dest)
+{
+	size_t pending = xof_digest_length;
+	uint32_t bn = 0;
+	while (pending >= 64) {
+		output_block (bn++, dest);
+		dest += 64;
+	}
+	if (pending > 0) {
+		uint8_t tmp[64];
+		output_block (bn, tmp);
+		memcpy (dest, tmp, pending);
+	}
+}
+
+
 
 // Add "inlen" bytes from "in" into the hash.
 EXPORTFN
@@ -310,6 +420,51 @@ int blake2s_init (blake2s_ctx *ctx, size_t outlen,
 	return 0;
 }
 
+
+EXPORTFN
+int blake2s_init (blake2s_ctx *ctx, size_t outlen,
+    const void *key, size_t keylen, Blake2s_param *par)     // (keylen=0: no key)
+{
+	size_t i;
+
+	if (outlen == 0 || outlen > 32 || keylen > 32)
+		return -1;                      // illegal parameters
+
+	for (i = 0; i < 8; i++)             // state, "param block"
+		ctx->h[i] = blake2s_iv[i];
+
+	if (par) {
+		par->key_length = keylen;
+		par->digest_length = outlen;
+		uint32_t x = par->digest_length | (uint32_t(par->key_length) << 8)
+				| (uint32_t(par->fanout) << 16) | (uint32_t(par->depth) << 24);
+		ctx->h[0] ^= x;
+		ctx->h[1] ^= par->leaf_length;
+		ctx->h[2] ^= par->node_offset;
+		ctx->h[3] ^= par->xof_digest_length | (uint32_t(par->node_depth) << 16) | (uint32_t(par->inner_length) << 24);
+		ctx->h[4] ^= leget32 (par->salt);
+		ctx->h[5] ^= leget32 (par->salt + 4);
+		ctx->h[6] ^= leget32 (par->personal);
+		ctx->h[7] ^= leget32 (par->personal + 4);
+	} else {
+		ctx->h[0] ^= 0x01010000 ^ (keylen << 8) ^ outlen;
+	}
+
+	ctx->t[0] = 0;                      // input count low word
+	ctx->t[1] = 0;                      // input count high word
+	ctx->c = 0;                         // pointer within buffer
+	ctx->outlen = outlen;
+
+	for (i = keylen; i < 64; i++)       // zero input block
+		ctx->b[i] = 0;
+	if (keylen > 0) {
+		blake2s_update(ctx, key, keylen);
+		ctx->c = 64;                    // at the end
+	}
+
+	return 0;
+}
+
 // Add "inlen" bytes from "in" into the hash.
 EXPORTFN
 void blake2s_update(blake2s_ctx *ctx,
@@ -366,6 +521,54 @@ int blake2s(void *out, size_t outlen,
 
 	return 0;
 }
+
+
+void Blake2xs::reset (size_t outlen, const void *key, size_t keylen)
+{
+	Blake2s_param par;
+	par.digest_length = 32;
+	par.xof_digest_length = xof_digest_length = outlen;
+	blake2s_init (&bl, 32, key, keylen, &par);
+	expanding = false;
+}
+
+void Blake2xs::output_block (uint32_t bn, uint8_t block[32])
+{
+	if (!expanding) {
+		blake2s_final (&bl, h0);
+		expanding = true;
+	}
+	Blake2s_param par;
+	par.key_length = 0;
+	par.fanout = 0;
+	par.depth = 0;
+	par.leaf_length = 32;
+	par.xof_digest_length = xof_digest_length;
+	par.node_depth = 0;
+	par.inner_length = 32;
+	par.node_offset = bn;
+
+	blake2s_ctx bl;
+	blake2s_init (&bl, 32, NULL, 0, &par);
+	blake2s_update (&bl, h0, 32);
+	blake2s_final (&bl, block);
+}
+
+void Blake2xs::output (uint8_t *dest)
+{
+	size_t pending = xof_digest_length;
+	uint32_t bn = 0;
+	while (pending >= 32) {
+		output_block (bn++, dest);
+		dest += 32;
+	}
+	if (pending > 0) {
+		uint8_t tmp[32];
+		output_block (bn, tmp);
+		memcpy (dest, tmp, pending);
+	}
+}
+
 
 
 }}

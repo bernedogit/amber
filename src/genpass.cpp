@@ -18,6 +18,7 @@ int main()
 	format(std::cout, _("Four groups of four digits (80 bits of entropy) should be enough.\n"));
 	format(std::cout, _("Entropy bits:      20   40   60   80  100  120\n"));
 	format(std::cout, _("Caseless, ascii: %s\n"), s);
+	show_block (std::cout, "Hex", x, 16);
 	base58enc(x, sizeof x, s);
 	format(std::cout, _("Base58 together: %s\n"), s);
 	format(std::cout, _("Entropy bits:  23   47   70   94  117\n"));
