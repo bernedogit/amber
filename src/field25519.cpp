@@ -56,7 +56,6 @@ static const Fe64 root_minus_1 = { 0x61b274a0ea0b0, 0xd5a5fc8f189d, 0x7ef5e9cbd0
 #endif
 
 // Load a byte string into the limb form.
-EXPORTFN
 void load (Fe32 &fe, const uint8_t b[32])
 {
 	// Loads 255 bits from b. Ignores the top most bit.
@@ -120,7 +119,6 @@ void show_raw (const char *label, const Fe64 &fe)
 
 
 // Fully reduce to mod p and store it in byte form.
-EXPORTFN
 void reduce_store (uint8_t b[32], Fe32 &fe)
 {
 	reduce (fe);
@@ -161,7 +159,6 @@ void reduce_store (uint8_t b[32], Fe32 &fe)
 }
 
 // Fully reduce to mod p
-EXPORTFN
 void reduce_full (Fe32 &fe)
 {
 	reduce (fe);
@@ -215,7 +212,6 @@ static void show_fe (std::ostream &os, const uint32_t rhs[10], const char *label
 	}
 }
 
-EXPORTFN
 std::ostream & operator<< (std::ostream &os, const Fe32 &rhs)
 {
 	show_fe (os, rhs.v);
@@ -283,7 +279,6 @@ static void raise_252_2 (Fe &res, Fe &z11, const Fe &z)
 
 // Raise to p-2 = 2²⁵⁵ - 21. This is the same as computing the inverse in
 // this field.
-EXPORTFN
 void invert (Fe &res, const Fe &z)
 {
 	Fe z11, tmp;// z¹¹
@@ -304,7 +299,6 @@ void invert (Fe &res, const Fe &z)
    β = u^[(p+3)/8] * v^[(7p-11)/8] = uv³(uv⁷)^[(p-5)/8]
 */
 
-EXPORTFN
 void raise_252_3 (Fe &res, const Fe &z)
 {
 	Fe z11, tmp;
@@ -314,7 +308,6 @@ void raise_252_3 (Fe &res, const Fe &z)
 
 
 // Return 1 or 0. Constant time.
-EXPORTFN
 uint8_t not_zero (const uint8_t *b, size_t n)
 {
 	uint8_t res = 0;
@@ -336,7 +329,6 @@ uint8_t not_zero (const uint8_t *b, size_t n)
    iff u == 1, sqrt(1/v) = v³(v⁷)^[(p-5)/8] = v³(v⁷)^(2²⁵² - 3)
 */
 
-EXPORTFN
 int invsqrt (Fe &res, const Fe &x)
 {
 	Fe x3, x7, r, r2, f1, rm1;
@@ -370,7 +362,6 @@ int invsqrt (Fe &res, const Fe &x)
 
 // res = sqrt(x) = x^((p+3)/8) = x^[(2²⁵⁵ - 16)/8] = x^(2²⁵² - 2)
 // Return 0 if there is a root. 1 if no root exists.
-EXPORTFN
 int sqrt (Fe &res, const Fe &z)
 {
 	Fe r, z11;
@@ -397,7 +388,6 @@ int sqrt (Fe &res, const Fe &z)
 	return not_zero (bytes, 32);
 }
 
-EXPORTFN
 void raise_253_5 (Fe &res, const Fe &z)
 {
 	Fe t1, t2;
@@ -408,7 +398,6 @@ void raise_253_5 (Fe &res, const Fe &z)
 }
 
 // Raise to 2²⁵⁴ - 10 Required for elligator 2.
-EXPORTFN
 void raise_254_10 (Fe &res, const Fe &z)
 {
 	Fe z6, tmp;
@@ -429,7 +418,6 @@ enum { A = 486662 };
 
 // Input x coordinate of point P and scalar. Output x2:z2 x coordinate of
 // scalar*P and x3:z3 x coordinate of (scalar+1)*P. Works for any scalar.
-EXPORTFN
 void montgomery_ladder (Fe &x2, Fe &z2, Fe &x3, Fe &z3, const Fe &x1, const uint8_t scalar[32])
 {
 	x2 = feone;
@@ -474,7 +462,6 @@ void montgomery_ladder (Fe &x2, Fe &z2, Fe &x3, Fe &z3, const Fe &x1, const uint
 // 255 and works with bits 0-254 of the scalar. X25519 requires that bit 254
 // is always set and bits 0-2 are cleared. This routine works with anything
 // and you must ensure that the scalar's bits have been properly masked.
-EXPORTFN
 void montgomery_ladder (Fe &res, const Fe &xp, const uint8_t scalar[32])
 {
 	Fe x2, z2, x3, z3;
@@ -485,7 +472,6 @@ void montgomery_ladder (Fe &res, const Fe &xp, const uint8_t scalar[32])
 
 
 // Montgomery ladder with recovery of projective X:Y:Z coordinates.
-EXPORTFN
 void montgomery_ladder_uv (Fe &resu, Fe &resv, Fe &resz,
             const Fe &xpu, const Fe &xpv, const uint8_t scalar[32])
 {
@@ -518,7 +504,6 @@ void montgomery_ladder_uv (Fe &resu, Fe &resv, Fe &resz,
 }
 
 // Montgomery ladder with recovery of affine U and V coordinates.
-EXPORTFN
 void montgomery_ladder_uv (Fe &resu, Fe &resv, const Fe &xpu, const Fe &xpv, const uint8_t scalar[32])
 {
 	Fe resz;
@@ -537,7 +522,6 @@ static const Fe C = { 0x1fb5500ba81e7, 0x5d6905cafa672, 0xec204e978b0, 0x4a216c2
                       0x70d9120b9f5ff };
 #endif
 
-EXPORTFN
 void edwards_to_mont (Fe &u, Fe &v, const Edwards &e)
 {
 	// u = (Z+Y)/(Z-Y)
@@ -555,7 +539,6 @@ void edwards_to_mont (Fe &u, Fe &v, const Edwards &e)
 	mul (v, v, t2);
 }
 
-EXPORTFN
 void mont_to_edwards (Edwards &e, const Fe &u, const Fe &v, const Fe &z)
 {
 	// y = (U-Z)/(U+Z) x = CU/V
@@ -571,7 +554,6 @@ void mont_to_edwards (Edwards &e, const Fe &u, const Fe &v, const Fe &z)
 }
 
 // Montgomery ladder with result as Edwards point.
-EXPORTFN
 void montgomery_ladder (Edwards &res, const Fe &xpu, const Fe &xpv, const uint8_t scalar[32])
 {
 	Fe u, v, z;
@@ -579,7 +561,6 @@ void montgomery_ladder (Edwards &res, const Fe &xpu, const Fe &xpv, const uint8_
 	mont_to_edwards (res, u, v, z);
 }
 
-EXPORTFN
 void montgomery_ladder (Edwards &res, const Edwards &p, const uint8_t scalar[32])
 {
 	Fe u, v;
@@ -598,25 +579,21 @@ static const Fe bv = { 0x1c5a27eced3d9, 0x7cdaf8c36453d, 0x523453248f535,
                        0x35a700f6e963b, 0x20ae19a1b8a08 };
 #endif
 
-EXPORTFN
 void montgomery_base (Fe &u, Fe &v, Fe &z, const uint8_t scalar[32])
 {
 	montgomery_ladder_uv (u, v, z, bu, bv, scalar);
 }
 
-EXPORTFN
 void montgomery_base (Fe &u, Fe &v, const uint8_t scalar[32])
 {
 	montgomery_ladder_uv (u, v, bu, bv, scalar);
 }
 
-EXPORTFN
 void montgomery_base (Edwards &e, const uint8_t scalar[32])
 {
 	montgomery_ladder (e, bu, bv, scalar);
 }
 
-EXPORTFN
 void montgomery_base (uint8_t mx[32], const uint8_t scalar[32])
 {
 	Fe u, v, z;
@@ -643,7 +620,6 @@ void montgomery_base (uint8_t mx[32], const uint8_t scalar[32])
 // requires that bit 254 is always set and bits 0-2 are cleared. This
 // routine works with anything and you must ensure that the scalar's bits
 // hav been properly masked.
-EXPORTFN
 void montgomery_ladder (uint8_t res[32], const uint8_t pointx[32], const uint8_t scalar[32])
 {
 	Fe feres, fex;
@@ -697,7 +673,6 @@ static const uint8_t pm12[32] = {
 };
 
 // Return 1 if v > lim. Return 0 otherwise.
-EXPORTFN
 uint32_t gt_than (const uint8_t v[32], const uint8_t lim[32])
 {
 	unsigned equal = 1;
@@ -722,7 +697,6 @@ uint32_t gt_than (const uint8_t v[32], const uint8_t lim[32])
 	For this to work u != A and -2u(u+A) must be a square.
 */
 
-EXPORTFN
 int elligator2_p2r (Fe &r, const Fe &u, const Fe &v)
 {
 	Fe upa = u;
@@ -764,7 +738,6 @@ int elligator2_p2r (Fe &r, const Fe &u, const Fe &v)
 	return 0;
 }
 
-EXPORTFN
 int elligator2_p2r (Fe &r, Fe &u, const Edwards &p)
 {
 	// First compute u and v.
@@ -792,7 +765,6 @@ int elligator2_p2r (Fe &r, Fe &u, const Edwards &p)
 	if ε == 1 then u = d
 	if ε == -1 then u = -A - d
 */
-EXPORTFN
 void elligator2_r2u (Fe &u, const Fe &r)
 {
 	Fe d, d2, d3, e;
@@ -836,7 +808,6 @@ void elligator2_r2u (Fe &u, const Fe &r)
 	sub (u, d, tmp);
 }
 
-EXPORTFN
 void increment (uint8_t scalar[32], int delta)
 {
 	// Keep all increments a multiple of the cofactor.
@@ -852,7 +823,6 @@ void increment (uint8_t scalar[32], int delta)
 
 
 // Load a byte string into the limb form.
-EXPORTFN
 void load (Fe64 &fe, const uint8_t b[32])
 {
 	// Loads 255 bits from b. Ignores the top most bit.
@@ -917,7 +887,6 @@ inline void add_bits64 (uint8_t *b, uint64_t c)
 
 
 // Fully reduce to mod p and store it in byte form.
-EXPORTFN
 void reduce_store (uint8_t b[32], Fe64 &fe)
 {
 	reduce (fe);
@@ -954,7 +923,6 @@ void reduce_store (uint8_t b[32], Fe64 &fe)
 }
 
 // Fully reduce to mod p
-EXPORTFN
 void reduce_full (Fe64 &fe)
 {
 	reduce (fe);
@@ -1003,7 +971,6 @@ static void show_fe (std::ostream &os, const uint64_t rhs[5], const char *label=
 	}
 }
 
-EXPORTFN
 std::ostream & operator<< (std::ostream &os, const Fe64 &rhs)
 {
 	show_fe (os, rhs.v);

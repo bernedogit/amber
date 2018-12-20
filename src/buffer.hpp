@@ -68,7 +68,7 @@ template <class T, size_t N=0> class buffer;
 
 
 template <class T>
-class buffer<T,0> {
+class EXPORTFN buffer<T,0> {
 protected:
 	T *buf;
 	T *fixed_buf;

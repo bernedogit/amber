@@ -29,18 +29,19 @@ typedef struct poly1305_context {
 } poly1305_context;
 
 
-void poly1305_init (poly1305_context *ctx, const unsigned char key[32]);
-void poly1305_update (poly1305_context *ctx, const unsigned char *m, size_t bytes);
-void poly1305_finish (poly1305_context *ctx, unsigned char mac[16]);
+EXPORTFN void poly1305_init (poly1305_context *ctx, const unsigned char key[32]);
+EXPORTFN void poly1305_update (poly1305_context *ctx, const unsigned char *m, size_t bytes);
+EXPORTFN void poly1305_finish (poly1305_context *ctx, unsigned char mac[16]);
 
 // This combines init/update/finish.
+EXPORTFN
 void poly1305_auth (unsigned char mac[16], const unsigned char *m, size_t bytes,
                     const unsigned char key[32]);
 
 // Constant time comparison. Return 1 or 0, no other values.
-int crypto_equal (const unsigned char *x, const unsigned char *y, size_t len);
+EXPORTFN int crypto_equal (const unsigned char *x, const unsigned char *y, size_t len);
 
-class Poly1305 {
+class EXPORTFN Poly1305 {
 	poly1305_context c;
 public:
 	Poly1305() {}
@@ -52,9 +53,9 @@ public:
 };
 
 // Add zero padding required by previous data of n bytes.
-void poly1305_pad16 (poly1305_context *ctx, size_t n);
+EXPORTFN void poly1305_pad16 (poly1305_context *ctx, size_t n);
 // Convert value to a little endian 8 byte sequence and add it.
-void poly1305_update (poly1305_context *ctx, uint64_t value);
+EXPORTFN void poly1305_update (poly1305_context *ctx, uint64_t value);
 
 }}
 

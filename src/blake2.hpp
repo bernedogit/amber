@@ -21,7 +21,7 @@ typedef struct {
 	size_t outlen;                      // digest size
 } blake2b_ctx;
 
-struct Blake2b_param {
+struct EXPORTFN Blake2b_param {
 	uint8_t  digest_length; // 1
 	uint8_t  key_length;    // 2
 	uint8_t  fanout;        // 3
@@ -53,7 +53,7 @@ struct Blake2b_param {
 };
 
 
-struct Blake2s_param {
+struct EXPORTFN Blake2s_param {
 	uint8_t  digest_length; // 1
 	uint8_t  key_length;    // 2
 	uint8_t  fanout;        // 3
@@ -87,20 +87,24 @@ struct Blake2s_param {
 // Initialize the hashing context "ctx" with optional key "key".
 //      1 <= outlen <= 64 gives the digest size in bytes.
 //      Secret key (also <= 64 bytes) is optional (keylen = 0).
+EXPORTFN
 int blake2b_init(blake2b_ctx *ctx, size_t outlen,
-    const void *key=0, size_t keylen=0);    // secret key
+                 const void *key=0, size_t keylen=0);    // secret key
 
 // Initialize using the full parameter block.
+EXPORTFN
 int blake2b_init (blake2b_ctx *ctx, size_t outlen,
                   const void *key, size_t keylen,
                   Blake2b_param *par);
 
 // Add "inlen" bytes from "in" into the hash.
+EXPORTFN
 void blake2b_update (blake2b_ctx *ctx,   // context
 	const void *in, size_t inlen);      // data to be hashed
 
 // Generate the message digest (size given in init).
 //      Result placed in "out".
+EXPORTFN
 void blake2b_final(blake2b_ctx *ctx, void *out);
 
 inline void blake2b_update (blake2b_ctx *ctx, uint64_t u)
@@ -119,6 +123,7 @@ inline void blake2b_update (blake2b_ctx *ctx, uint64_t u)
 
 
 // All-in-one convenience function.
+EXPORTFN
 int blake2b(void *out, size_t outlen,   // return buffer for digest
 	const void *key, size_t keylen,     // optional secret key
 	const void *in, size_t inlen);      // data to be hashed
@@ -137,18 +142,22 @@ typedef struct {
 // Initialize the hashing context "ctx" with optional key "key".
 //      1 <= outlen <= 32 gives the digest size in bytes.
 //      Secret key (also <= 32 bytes) is optional (keylen = 0).
+EXPORTFN
 int blake2s_init(blake2s_ctx *ctx, size_t outlen,
     const void *key, size_t keylen);    // secret key
 
 // Add "inlen" bytes from "in" into the hash.
+EXPORTFN
 void blake2s_update (blake2s_ctx *ctx,   // context
 	const void *in, size_t inlen);      // data to be hashed
 
 // Generate the message digest (size given in init).
 //      Result placed in "out".
+EXPORTFN
 void blake2s_final (blake2s_ctx *ctx, void *out);
 
 // All-in-one convenience function.
+EXPORTFN
 int blake2s(void *out, size_t outlen,   // return buffer for digest
 	const void *key, size_t keylen,     // optional secret key
 	const void *in, size_t inlen);      // data to be hashed
@@ -156,7 +165,7 @@ int blake2s(void *out, size_t outlen,   // return buffer for digest
 
 // C++ interfaces.
 
-class Blake2s {
+class EXPORTFN Blake2s {
 	blake2s_ctx bl;
 public:
 	enum { blocklen = 64, hashlen = 32 };
@@ -174,7 +183,7 @@ public:
 	}
 };
 
-class Blake2b {
+class EXPORTFN Blake2b {
 	blake2b_ctx bl;
 	uint64_t count;
 public:
@@ -211,7 +220,7 @@ public:
 // output length. Then feed the key material with update(). Finally call
 // output() to retrieve the output. If the output is generated blockwise then
 // use output_block().
-class Blake2xb {
+class EXPORTFN Blake2xb {
 	uint32_t xof_digest_length;
 	uint8_t h0[64];
 	blake2b_ctx bl;
@@ -229,7 +238,7 @@ public:
 };
 
 
-class Blake2xs {
+class EXPORTFN Blake2xs {
 	uint32_t xof_digest_length;
 	uint8_t h0[32];
 	blake2s_ctx bl;

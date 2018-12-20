@@ -31,7 +31,7 @@ result of xoring the plain text with the ChaCha20 stream. The key used to
 create this stream is the encryption key Ke.
 
 The `encrypt_many()` also takes the array of authentication keys Ka, with
-each element of this array Ka[i] being the key used to authencate the message
+each element of this array Ka[i] being the key used to authenticate the message
 for user i. The ciphertext includes the xored message mentioned above and a
 sequence of 16 byte tags, one per receiver. To compute the tag for receiver
 i, we derive the poly1305 key as follows: `chacha20 (Ka[i], nonce,
@@ -55,6 +55,18 @@ implement the RFC version by just passing the same key for encryption and
 authentication. Note also that even if we repeat the authentication keys the
 actual key used for Poly1305 will be different.
 
+For each recipient we call Poly1305 with the corresponding key and pass first 
+the authenticated data. If the length of the authenticated data is not a 
+multiple of 16 additional zero bytes are passed to Poly1305 until the number 
+of input bytes is multiple of 16. The the ciphertext produced by xoring the 
+input is passed to Poly1305. If the length of the ciphertext is not a 
+multiple of 16 additional zero bytes are passed to Poly1305 until a multiple 
+of 16 is reached. The length of the authenticated data is stored as a little 
+endian 8 byte value and passed to Poly1305. The length of the message is 
+stored as a little endian 8 byte value and passed to Poly1305. The tag 
+produced by Poly1305 is appended to the final ciphertext. This method is the 
+one defined in RFC 7539.
+
 The `decrypt_many()` computes the authentication tag in the same way using
 the key provided for the decryption and checks it against the expected tag
 position. If the found tag is identical to the expected tag then it proceeds
@@ -65,13 +77,13 @@ text.
 The `encrypt_one()` and `decrypt_one()` are just shorthands for using the
 encryption key as authentication key.
 
-Note that the ciphertext is made of two parts. The first part is the 
-plaintext xored with the output of ChaCha. ChaCha is presumed to be 
-undistinguishable from random and therefore this part is also 
-undistinguishable from random. The second part is the Poly1305 tag. This tag 
-is also undistinguishable from random (see 
-https://crypto.stackexchange.com/questions/17835/are-poly1305-authenticators-d 
-istinguishable-from-random-data). 
+Note that the ciphertext is made of two parts. The first part is the
+plaintext xored with the output of ChaCha. ChaCha is presumed to be
+undistinguishable from random and therefore this part is also
+undistinguishable from random. The second part is the Poly1305 tag. This tag
+is also undistinguishable from random (see
+https://crypto.stackexchange.com/questions/17835/are-poly1305-authenticators-d
+istinguishable-from-random-data).
 
 
 
@@ -642,4 +654,5 @@ produced with a current working key.
 Note that if certificates are present they will also be part of the input to
 the cu25519_sign() function. This is required to detect any tampering with
 the signature itself.
+
 

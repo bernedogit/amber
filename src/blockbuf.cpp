@@ -754,7 +754,6 @@ void Blockbuf::init_read (std::streambuf *sb, const Cu25519Pair &rx,
 
 
 
-EXPORTFN
 void insert_icryptbuf(std::istream &is, Blockbuf *bb)
 {
 	is.rdbuf(bb);
@@ -1064,7 +1063,6 @@ static void hide_common(const char *bogus, const char *real,
 	}
 }
 
-EXPORTFN
 void hide (const char *ename, const char *bogus, const char *real,
            const char *pass1, const char *pass2, int bs, int bf, int shifts)
 {
@@ -1100,7 +1098,6 @@ void hide (const char *ename, const char *bogus, const char *real,
 }
 
 
-EXPORTFN
 void hide (const char *ename, const char *bogus, const char *real,
            const Cu25519Pair &tx, const std::vector<Cu25519Pub> &rx,
            const Cu25519Pub &rx2, int bs, int bf)
@@ -1221,7 +1218,6 @@ void reveal_common(const char *oname, std::istream &is,
 }
 
 
-EXPORTFN
 void reveal (const char *oname, const char *iname, const char *pass1,
              const char *pass2, int shifts_max)
 {
@@ -1254,7 +1250,6 @@ void reveal (const char *oname, const char *iname, const char *pass1,
 }
 
 
-EXPORTFN
 void reveal(const char *oname, const char *iname, const Cu25519Pair &rx1,
             const Cu25519Sec &rx2, Cu25519Pub *sender, int *nrx)
 {

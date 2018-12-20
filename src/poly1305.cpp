@@ -1,3 +1,10 @@
+/*
+	Public domain by Andrew M. <liquidsun@gmail.com>
+
+	Poly1305-donna.
+*/
+
+
 #include "poly1305.hpp"
 
 #include <string.h>
@@ -23,7 +30,7 @@ typedef struct poly1305_state_internal_t {
 } poly1305_state_internal_t;
 
 
-EXPORTFN void
+ void
 poly1305_init(poly1305_context *ctx, const unsigned char key[32])
 {       
 	poly1305_state_internal_t *st = (poly1305_state_internal_t *)ctx;
@@ -113,7 +120,7 @@ poly1305_blocks(poly1305_state_internal_t *st, const unsigned char *m, size_t by
 	st->h[4] = h4;
 }
 
-EXPORTFN
+
 void poly1305_finish(poly1305_context *ctx, unsigned char mac[16])
 {
 	poly1305_state_internal_t *st = (poly1305_state_internal_t *)ctx;
@@ -203,7 +210,7 @@ void poly1305_finish(poly1305_context *ctx, unsigned char mac[16])
 
 
 
-EXPORTFN
+
 void poly1305_update(poly1305_context *ctx, const unsigned char *m, size_t bytes)
 {
 	poly1305_state_internal_t *st = (poly1305_state_internal_t *)ctx;
@@ -241,7 +248,7 @@ void poly1305_update(poly1305_context *ctx, const unsigned char *m, size_t bytes
 	}
 }
 
-EXPORTFN
+
 void poly1305_auth(unsigned char mac[16], const unsigned char *m, size_t bytes, const unsigned char key[32])
 {
 	poly1305_context ctx;
@@ -250,7 +257,7 @@ void poly1305_auth(unsigned char mac[16], const unsigned char *m, size_t bytes, 
 	poly1305_finish(&ctx, mac);
 }
 
-EXPORTFN
+
 int crypto_equal(const unsigned char *mac1, const unsigned char *mac2, size_t n)
 {
 	size_t i;

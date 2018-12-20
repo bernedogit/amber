@@ -109,6 +109,7 @@ enum Key_encoding { key16, key32, key58, key64 };
 // signatures for this key will also be shown. kl1 and kl2 will be used to
 // look up the names of the signers of the key. Set kenc to the preferred
 // encoding for showing the keys.
+EXPORTFN
 void list_key(const Key &k, std::ostream &os, bool pubonly, bool sigs,
               const Key_list *kl1=NULL, const Key_list *kl2=NULL,
               Key_encoding kenc=key58);
@@ -117,13 +118,14 @@ void list_key(const Key &k, std::ostream &os, bool pubonly, bool sigs,
 // kl then it will be looked up in the list names, if given. Set pubonly if
 // you do not want to show the private keys. Set sigs to show the signers of
 // the keys.
+EXPORTFN
 void list_keys(const Key_list &kl, std::ostream &os, bool pubonly, bool sigs,
                const Key_list *names=NULL, Key_encoding kenc=key58);
 
 // Insert the key in the list if not already present. Return true if the key
 // was not in the list and we could insert it. If force is true then the key
 // k will replace a previous existing copy.
-bool insert_key(Key_list &kl, const Key &k, bool force);
+EXPORTFN bool insert_key(Key_list &kl, const Key &k, bool force);
 
 
 // Read the keys from the input file into the key list. Return the number of
@@ -131,27 +133,31 @@ bool insert_key(Key_list &kl, const Key &k, bool force);
 // then *errinfo will contain error information. If recalc is true it will
 // recompute the public key from other information. If force is true then the
 // read keys will replace keys already existing in kl.
+EXPORTFN
 int read_keys(std::istream &is, Key_list &kl, bool recalc, bool force);
 
 // Read the keys from an encrypted file.
+EXPORTFN
 int read_keys(const std::string &name, Key_list &kl, std::string &password,
               bool recals, bool force, std::string *errinfo);
 
 
 // Write a single key or a list in binary format. If pubonly is selected only the public
 // part will be written.
-void write_key(std::ostream &os, const Key &key, bool pubonly);
-void write_keys(std::ostream &os, const Key_list &kl, bool pubonly);
+EXPORTFN void write_key(std::ostream &os, const Key &key, bool pubonly);
+EXPORTFN void write_keys(std::ostream &os, const Key_list &kl, bool pubonly);
 
 // Generate a new master key with the given name. priv[] contains the random
 // bytes to be used to generate the key. It correctly fills all the fields
 // of key and self signs the key.
-void generate_master_key(const uint8_t priv[32], const char *name, Key *key);
+EXPORTFN void generate_master_key(const uint8_t priv[32], const char *name, Key *key);
 
 // Generate a master key from the value of the private key.
+EXPORTFN
 void generate_master_from_secret(const uint8_t priv[32], const char *name, Key *key);
 
 // Generate a working key signed by the master.
+EXPORTFN
 void generate_work_key(const uint8_t priv[32], const char *name, Key *key, const Key &master);
 
 
@@ -159,92 +165,114 @@ void generate_work_key(const uint8_t priv[32], const char *name, Key *key, const
 // Given a list of names, select from the list kl those keys that match any of the names
 // and store the matching keys into dst. A key matches a name when either some part of
 // its name matches the name or when the name is a prefix of the key itself.
-void select_keys(const Key_list &kl, const std::vector<std::string> &names,
+EXPORTFN void select_keys(const Key_list &kl, const std::vector<std::string> &names,
                  Key_list &dst);
 
 // Same as above but only select working keys, skipping the master keys.
 // Within the working keys select only the most recent one.
+EXPORTFN
 void select_last_keys(const Key_list &kl, const std::vector<std::string> &names,
                       Key_list &dst);
 
 // Just a single name.
+EXPORTFN
 void select_keys(const Key_list &kl, const std::string &name, Key_list &dst);
 
 // Select all the secret keys present in the list.
-void select_secret_keys(const Key_list &kl, Key_list &dst);
+EXPORTFN void select_secret_keys(const Key_list &kl, Key_list &dst);
 
 // Select either the key with the given name or select the secret key in the
 // ring. If there are more than one key that match the above criteria throw
 // an exception.
-void select_one(const Key_list &kl, const std::string &name, Key &key);
+EXPORTFN void select_one(const Key_list &kl, const std::string &name, Key &key);
 
 // Select either the key with the given name or select the secret key in the
 // ring. If there are more than one key that match the above criteria
 // then select the most recent key. If master is true then select only the
 // most recent master key.
-void select_recent_one(const Key_list &kl, const std::string &name, Key &key, bool master);
+EXPORTFN
+void select_recent_one (const Key_list &kl, const std::string &name, 
+						Key &key, bool master);
 
 
 // Modify the name of selected keys. selected contains a list of strings.
 // Those keys that match these strings will get the name new_name.
+EXPORTFN
 void change_name(Key_list &kl, const std::vector<std::string> &selected,
                  const char *new_name);
 
 // Modify the alias of selected keys. selected contains a list of strings.
 // Those keys that match these strings will have their alias set to new_alias.
+EXPORTFN
 void change_alias(Key_list &kl, const std::vector<std::string> &selected,
                  const char *new_alias);
 
 // Same as change_alias but it keeps the existing aliases and adds a new one.
-void append_alias(Key_list &kl, const std::vector<std::string> &selected,
-                 const char *new_alias);
+EXPORTFN
+void append_alias (Key_list &kl, const std::vector<std::string> &selected, 
+				   const char *new_alias);
 
 
 // Return true if at least one of the selected keys was found in the key
 // list kl. The found key is deleted.
-bool delete_keys(Key_list &kl, const Key_list &selected);
+EXPORTFN bool delete_keys(Key_list &kl, const Key_list &selected);
 
 // Sign the keys selected using the names in selnames. The signer can be
 // specified by name or by providing the key.
-int sign_keys(Key_list &kl, const char *signer, const std::vector<std::string> &selnames);
-int sign_keys(Key_list &kl, const Key &signer, const std::vector<std::string> &selnames);
+EXPORTFN
+int sign_keys (Key_list &kl, const char *signer, 
+			   const std::vector<std::string> &selnames);
+
+EXPORTFN
+int sign_keys (Key_list &kl, const Key &signer, 
+			   const std::vector<std::string> &selnames);
 
 // Sign all keys.
-int sign_keys(Key_list &kl, const Key &signer);
+EXPORTFN int sign_keys(Key_list &kl, const Key &signer);
 
 // Remove the signature by signer from all the keys that match the names in
 // selnames.
-int remove_signature(Key_list &kl, const char *signer, const std::vector<std::string> &selnames);
+EXPORTFN
+int remove_signature (Key_list &kl, const char *signer, 
+					  const std::vector<std::string> &selnames);
 
 // Return the key if found. NULL otherwise.
-const Key * find_key(const Key_list &kl, const Cu25519Pub &pub);
+EXPORTFN const Key * find_key(const Key_list &kl, const Cu25519Pub &pub);
 
 // Provide the name corresponding to the key. If the pub key can be found in
 // the list kl then set name to the name of the key. In addition always
 // append to the resulting name the raw value of pub encoded using the
 // encoding kenc.
-void find_key_name(const Key_list &kl, const Cu25519Pub &pub, std::string &name,
-                  Key_encoding kenc=key58);
+EXPORTFN
+void find_key_name (const Key_list &kl, const Cu25519Pub &pub, 
+					std::string &name, Key_encoding kenc=key58);
 
+EXPORTFN
 void show_sig_key (const Key_list &kl, const Key &key, Key_encoding kenc);
 
 
 // Encode the key into a string that is readable by humans. If spaces is true
 // then for key16 and key32 spaces will be used to create more readable
 // blocks. The encoded keys include a check digit to detect typing errors.
-void encode_key(const uint8_t *b, size_t n, std::string &dst, bool spaces, Key_encoding ke=key58);
-int decode_key(const char *s, std::vector<uint8_t> &dst, Key_encoding ke=key58);
+EXPORTFN
+void encode_key (const uint8_t *b, size_t n, std::string &dst, bool spaces, 
+				 Key_encoding ke=key58);
+
+EXPORTFN
+int decode_key (const char *s, std::vector<uint8_t> &dst, 
+				Key_encoding ke=key58);
 
 
 // Return true if the signatures are valid. If some signature is not valid
 // the set the corresponding valid[i] to false.
+EXPORTFN
 bool verify_key_sigs_ok(const Key &k, std::vector<bool> &valid);
 
 // Show everything for debugging purposes.
-void dump_key(std::ostream &os, const Key &k);
+EXPORTFN void dump_key(std::ostream &os, const Key &k);
 
-void hash_key (const Key &k, uint8_t hash[64]);
-const char * get_sig_prefix();
+EXPORTFN void hash_key (const Key &k, uint8_t hash[64]);
+EXPORTFN const char * get_sig_prefix();
 
 }}
 

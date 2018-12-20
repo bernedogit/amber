@@ -1,3 +1,30 @@
+/*
+ * Copyright (c) 2015-2018, Pelayo Bernedo
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+ * IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #include "symmetric.hpp"
 #include "misc.hpp"
 #include <iostream>
@@ -186,6 +213,29 @@ void test (const Chachapoly_case &tc)
 }
 
 
+void test_hchacha ()
+{
+	// Test case from
+	// https://tools.ietf.org/html/draft-arciszewski-xchacha-03
+	uint8_t key1[32];
+	for (int i = 0; i < 32; ++i) key1[i] = i;
+	uint8_t nonce[] = {
+		0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x4a,
+		0x00, 0x00, 0x00, 0x00, 0x31, 0x41, 0x59, 0x27
+	};
+	uint32_t k2[8];
+	uint32_t expected[8] = { 0x423b4182, 0xfe7bb227, 0x50420ed3, 0x737d878a,
+	                         0xd5e4f9a0, 0x53a8748a, 0x13c42ec1, 0xdcecd326 };
+	hchacha20 (k2, key1, nonce);
+	for (int i = 0; i < 8; ++i) {
+		if (expected[i] != k2[i]) {
+			format (std::cout, "error in hchacha[%d], expected = 0x%08X  computed = 0x%08X\n",
+			        i, expected[i], k2[i]);
+		}
+	}
+	format (std::cout, "HChaCha20 tested\n");
+}
+
 int main()
 {
 	enum { num_vecs = sizeof(chv)/sizeof(chv[0]) };
@@ -195,6 +245,7 @@ int main()
 	std::cout << num_vecs << " ChaCha20 test vectors checked\n";
 
 	test (ccc[0]);
+	test_hchacha();
 }
 
 

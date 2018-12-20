@@ -267,21 +267,25 @@ public:
 // looking file *bogus* will be encrypted as the normal encrypted file with
 // the password *pass1*. The file *real* will be encrypted into the filler
 // bytes using the password *pass2*.
+EXPORTFN
 void hide(const char *ename, const char *bogus, const char *real,
           const char *pass1, const char *pass2, int bs, int bf, int shifts);
 
 // Decrypt the second file present in the encrypted file *iname* using the
 // passwords *pass1* and *pass2* and store the decrypted file in oname.
+EXPORTFN
 void reveal(const char *oname, const char *iname, const char *pass1,
             const char *pass2, int shifts_max=0);
 
 // Hide the real file in the block_filler bytes as above. The file looks like
 // it was encrypted for rx but the hidden text is encrypted for rx2.
+EXPORTFN
 void hide(const char *ename, const char *bogus, const char *real,
           const Cu25519Pair &tx, const std::vector<Cu25519Pub> &rx,
           const Cu25519Pub &rx2, int bs, int bf);
 
 // Decrypt the second file using the key rx2.
+EXPORTFN
 void reveal(const char *oname, const char *iname, const Cu25519Pair &rx1,
             const Cu25519Sec &rx2, Cu25519Pub *sender, int *nrx);
 

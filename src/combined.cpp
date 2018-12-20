@@ -43,7 +43,6 @@ static const char armor_beg[] = "------------AMBER ARMOR BEGIN--------------";
 static const char armor_end[] = "------------AMBER ARMOR END----------------";
 
 
-EXPORTFN
 void sym_encrypt (const char *iname, const char *oname, std::string &password,
                   int bs, int bf, int shifts, bool wipe)
 {
@@ -89,7 +88,6 @@ void sym_encrypt (const char *iname, const char *oname, std::string &password,
 	}
 }
 
-EXPORTFN
 void sym_decrypt(const char *iname, const char *oname, std::string &password,
                  bool verbose, int shifts_max)
 {
@@ -149,7 +147,6 @@ void sym_decrypt(const char *iname, const char *oname, std::string &password,
 
 
 
-EXPORTFN
 void pub_encrypt(const char *iname, const char *oname, const Key &sender,
                  const Key_list &rx, int bs, int bf, bool wipe)
 {
@@ -202,7 +199,6 @@ void pub_encrypt(const char *iname, const char *oname, const Key &sender,
 }
 
 
-EXPORTFN
 void pub_decrypt (const char *iname, const char *oname, const Key &rx,
                   Cu25519Pub &sender, int *nrx, bool verbose)
 {
@@ -262,7 +258,6 @@ void pub_decrypt (const char *iname, const char *oname, const Key &rx,
 }
 
 
-EXPORTFN
 void pub_spoof(const char *iname, const char *oname, const Key &rx,
                const Key_list &sender_dummies, int bs, int bf)
 {
@@ -460,7 +455,6 @@ static void add_certs_to_hash (Blake2b *bl, const Key &key)
 	}
 }
 
-EXPORTFN
 void sign_file(const char *iname, const char *oname, const Key &signer, const char *comment, bool b64, bool add_certs)
 {
 	try {
@@ -524,7 +518,6 @@ void sign_file(const char *iname, const char *oname, const Key &signer, const ch
 
 
 
-EXPORTFN
 int verify_file(const char *iname, const char *sname, Key &signer, std::string *comment, time_t *date, bool b64)
 {
 	try {
@@ -622,7 +615,6 @@ static void trim_right(std::string *s)
 
 
 
-EXPORTFN
 void clear_sign(const char *iname, const char *oname, const Key &signer, const char *comment, bool add_certs)
 {
 	try {
@@ -678,7 +670,6 @@ void clear_sign(const char *iname, const char *oname, const Key &signer, const c
 }
 
 // Return 0 if the signature is valid.
-EXPORTFN
 int clear_verify (const char *name, Key &signer, std::string *comment, time_t *date)
 {
 	try {
@@ -741,7 +732,6 @@ int clear_verify (const char *name, Key &signer, std::string *comment, time_t *d
 }
 
 
-EXPORTFN
 void clear_sign_again(const char *name, const Key &signer, const char *comment, bool add_certs)
 {
 	std::string oname = name;

@@ -48,8 +48,10 @@ namespace amber {   namespace AMBER_SONAME {
 // size to be used and bf is the block filler size. Passing -1 means that the
 // program should select random values. Shifts is the number of shifts to
 // pass to the scrypt function.
+EXPORTFN
 void sym_encrypt(const char *iname, const char *oname, std::string &password,
                  int bs=-1, int bf=-1, int shifts=14, bool wipe=false);
+EXPORTFN
 void sym_decrypt(const char *iname, const char *oname, std::string &password,
                  bool verbose=false, int shifts_max=0);
 
@@ -59,10 +61,12 @@ void sym_decrypt(const char *iname, const char *oname, std::string &password,
 // public key parameters.
 
 // Pass the key of the sender and the list of keys of the receivers.
+EXPORTFN
 void pub_encrypt(const char *iname, const char *oname, const Key &sender,
                  const Key_list &rx, int bs=-1, int bf=-1, bool wipe=false);
 
 // Pass the key of the receiver and it will return the public key of the sender.
+EXPORTFN
 void pub_decrypt(const char *iname, const char *oname, const Key &rx,
                  Cu25519Pub &sender, int *nrx, bool verbose);
 
@@ -70,6 +74,7 @@ void pub_decrypt(const char *iname, const char *oname, const Key &rx,
 // sender_dummies to the key of rx. Rx must have the private key available.
 // The keys in sender_dummies need only the public part. The keys other than
 // the first one of sender_dummies are used as dummy receivers.
+EXPORTFN
 void pub_spoof(const char *iname, const char *oname, const Key &rx,
                const Key_list &sender_dummies, int bs, int bf);
 
@@ -77,6 +82,7 @@ void pub_spoof(const char *iname, const char *oname, const Key &rx,
 // Sign the contents of the file iname and put the signature in the file
 // oname. The comment will be included in the signature and is part of the
 // signed text. If b64 is true then the signature will be base64 encoded.
+EXPORTFN
 void sign_file(const char *iname, const char *oname, const Key &signer,
                const char *comment, bool b64, bool add_certs=false);
 
@@ -85,20 +91,24 @@ void sign_file(const char *iname, const char *oname, const Key &signer,
 // the signature, if any. Set b64 to true is the signature is the file sname
 // is encoded in base 64. Store in signer the public key of the signer.
 // Return zero if the signature is valid.
+EXPORTFN
 int verify_file(const char *iname, const char *sname, Key &signer,
                 std::string *comment, time_t *date, bool b64);
 
 // Copy the text from the file iname to the file oname and append the
 // signature to the text of oname. The signature is encoded in base 64.
+EXPORTFN
 void clear_sign(const char *iname, const char *oname, const Key &signer, const char *comment, bool add_certs);
 
 // Verify the signature which has been appended to the text in name. Store in
 // signer the public key of the signer. Return zero if the signature is valid.
+EXPORTFN
 int clear_verify(const char *name, Key &signer, std::string *comment, time_t *date);
 
 // Modify the signature of the existing signed file so that is is correct with the
 // current contents of the signed text. In this way you may directly modify the clear
 // signed file and obtain a new signature.
+EXPORTFN
 void clear_sign_again(const char *name, const Key &signer, const char *comment, bool add_certs);
 
 }}

@@ -55,7 +55,7 @@ struct Chakey {
 	uint32_t kw[8];
 };
 
-void load (Chakey *kw, const uint8_t bytes[32]);
+EXPORTFN void load (Chakey *kw, const uint8_t bytes[32]);
 
 
 // The raw chacha stream. kn is a set of 32 bit integers that hold the state
@@ -69,11 +69,14 @@ void load (Chakey *kw, const uint8_t bytes[32]);
 // a little endian sequence of 32 bit integers. The IETF splits the 128-bit
 // index into a 96-bit nonce and a 32-bit block number. This split allows
 // packets to be as big as 2^38 bytes.
-void chacha20 (uint8_t out[64], const uint32_t kn[12]);
-void chacha20 (uint32_t out[16], const uint32_t kn[12]);
+EXPORTFN void chacha20 (uint8_t out[64], const uint32_t kn[12]);
+EXPORTFN void chacha20 (uint32_t out[16], const uint32_t kn[12]);
 
 // Same with explicit division into key, nonce and block number.
+EXPORTFN
 void chacha20 (uint8_t out[64], const Chakey &key, uint64_t n64, uint64_t bn);
+
+EXPORTFN
 void chacha20 (uint8_t out[64], const uint32_t key[8], uint64_t nonce, uint64_t bn);
 
 // Note: HChaCha20 and XChaCha20 are provided for completeness in line with
@@ -82,8 +85,13 @@ void chacha20 (uint8_t out[64], const uint32_t key[8], uint64_t nonce, uint64_t 
 // starting at zero.
 
 // Using the key and the nonce generate a new key.
+EXPORTFN
 void hchacha20 (Chakey *out, const uint8_t key[32], const uint8_t n[16]);
+
+EXPORTFN
 void hchacha20 (Chakey *out, const Chakey &key, const uint8_t n[16]);
+
+EXPORTFN
 void hchacha20 (uint32_t out[8], const uint8_t key[32], const uint8_t n[16]);
 
 
@@ -139,20 +147,22 @@ void xchacha (Chakey *new_key, uint64_t *nonce,
 // key is in kw. There are nka authentication keys, stored in ka[0..nka[.
 // The function will append to the ciphertext a 16 byte tag for each
 // authentication key. cipher must have space for mlen + nka*16 bytes.
-void encrypt_multi (uint8_t *cipher, const uint8_t *m, size_t mlen, 
-					const uint8_t *ad, size_t alen, const Chakey &kw, 
-					const Chakey *ka, size_t nka, uint64_t nonce64, 
-					uint32_t ietf_sender=0);
+EXPORTFN
+void encrypt_multi (uint8_t *cipher, const uint8_t *m, size_t mlen,
+                    const uint8_t *ad, size_t alen, const Chakey &kw,
+                    const Chakey *ka, size_t nka, uint64_t nonce64,
+                    uint32_t ietf_sender=0);
 
 
 // Decrypt the ciphertext cipher[0..clen[ to the plaintext and store it in m.
 // Authenticate the additional data ad[0..alen[. The key used to authenticate
 // is in ka. It is assumed that there are nka authentication tags and we are
 // checking the ika-th tag.
-int decrypt_multi (uint8_t *m, const uint8_t *cipher, size_t clen, 
-				   const uint8_t *ad, size_t alen, const Chakey &kw, 
-				   const Chakey &ka, size_t nka, size_t ika, uint64_t nonce64, 
-				   uint32_t ietf_sender=0);
+EXPORTFN
+int decrypt_multi (uint8_t *m, const uint8_t *cipher, size_t clen,
+                   const uint8_t *ad, size_t alen, const Chakey &kw,
+                   const Chakey &ka, size_t nka, size_t ika, uint64_t nonce64,
+                   uint32_t ietf_sender=0);
 
 
 // Single authentication key variants. The same key is used for encryption
@@ -183,6 +193,7 @@ int decrypt_one (uint8_t *m, const uint8_t *cipher, size_t clen,
 // p are the same as defined in the scrypt paper. The shifts parameter is
 // related to the N parameter of the scrypt paper: N = 1 << shifts. The
 // actual memory used is in bytes [(1 << shifts) + p]*r*128
+EXPORTFN
 void scrypt_blake2b (uint8_t *dk, size_t dklen,
                      const char *pwd, size_t plen,
                      const uint8_t *salt, size_t slen,
@@ -277,6 +288,7 @@ public:
 // is reset so that it is not possible to backtrack to previous output. This
 // class is very secure but may be inefficient if very small amounts of
 // output are requested on each call.
+EXPORTFN
 void randombytes_buf (void *p, size_t n);
 
 }}

@@ -50,24 +50,29 @@ inline void mask_scalar (uint8_t scb[32])
 // The sign bit is the least significant bit of the Edwards X coordinate.
 
 // Store the point as Montgomery x with the sign bit in bit 255.
+EXPORTFN
 void edwards_to_mx (uint8_t res[32], const Edwards &p);
 
 // Store the point as Edwards y with the sign bit in bit 255.
+EXPORTFN
 void edwards_to_ey (uint8_t res[32], const Edwards &p);
 
 // Store in both formats. More efficient than separate calls.
+EXPORTFN
 void edwards_to_ey_mx (uint8_t ey[32], uint8_t mx[32], const Edwards &p);
 
 
 // Load from compressed Edwards Y plus sign bit to full Edwards extended
 // coordinates. Return 0 if ok, -1 on errors. If neg is true then it will
 // select the negative value of the point.
+EXPORTFN
 int ey_to_edwards (Edwards &res, const uint8_t ey[32], bool neg=true);
 
 // Load from compressed Montgomery X plus sign bit to full Edwards
 // extended coordinates. Return 0 on success. If will fail if the point is
 // not on the curve or mx == 0 or mx == -1. If neg is true then it will
 // select the negative value of the point.
+EXPORTFN
 int mx_to_edwards (Edwards &res, const uint8_t mx[32], bool neg=true);
 
 // In both cases above the sign bit is the least significant bit of
@@ -83,24 +88,30 @@ int mx_to_edwards (Edwards &res, const uint8_t mx[32], bool neg=true);
 
 
 // Convert compressed Edwards y to compressed Montgomery x, with sign bits.
+EXPORTFN
 void ey_to_mx (uint8_t mx[32], const uint8_t ey[32]);
 
 // Convert compressed Montgomery x to compressed Edwards y, with sign bits.
+EXPORTFN
 void mx_to_ey (uint8_t ey[32], const uint8_t mx[32]);
 
 // Output the result of edwards_to_ey.
+EXPORTFN
 std::ostream & operator<< (std::ostream &os, const Edwards &rhs);
 
 
 // Compute sB using precomputed multiples of B (the base point). Constant
 // time.
+EXPORTFN
 void scalarbase (Edwards &res, const uint8_t scalar[32]);
 
 // General scalar multiplication with variable base. Constant time.
+EXPORTFN
 void scalarmult (Edwards &res, const Edwards &p, const uint8_t s[32]);
 
 // General scalar multiplication with variable base using a fixed window.
 // Constant time. Faster.
+EXPORTFN
 void scalarmult_fw (Edwards &res, const Edwards &p, const uint8_t s[32]);
 
 
@@ -115,6 +126,7 @@ extern const Edwards edwards_base_point;
 // Sign the given message, m[0..mlen[ with the secret scalar. Mx is the
 // public Montgomery X. This function uses Blake2b as hash. The prefix
 // (including the terminating null) is prepended to the message.
+EXPORTFN
 void sign_bmx (const char *prefix, const uint8_t *m, size_t mlen,
                const uint8_t mx[32], const uint8_t scalar[32], uint8_t sig[64]);
 
@@ -122,32 +134,36 @@ void sign_bmx (const char *prefix, const uint8_t *m, size_t mlen,
 // for the hashing in H(RAM) and decompressing mx to the public point of
 // the signer. Return 0 if the signature is valid. Uses Blake2b as hash. The
 // prefix is prepended to the message.
+EXPORTFN
 int verify_bmx (const char *prefix, const uint8_t *m, size_t mlen,
                 const uint8_t sig[64], const uint8_t mx[32]);
 
 
 // Variable time res = s*P
+EXPORTFN
 void scalarmult_wnaf (Edwards &res, const Edwards &p, const uint8_t s[32]);
 
 // Variable time res = s1*B + s2*P, where B is the base point.
+EXPORTFN
 void scalarmult_wnaf (Edwards &res, const uint8_t s1[32],
                       const Edwards &p, const uint8_t s2[32]);
 
 // Point arithmetic.
-void add (Edwards &res, const Edwards &a, const Edwards &b);
-void negate (Edwards &res, const Edwards &p);
+EXPORTFN void add (Edwards &res, const Edwards &a, const Edwards &b);
+EXPORTFN void negate (Edwards &res, const Edwards &p);
 
 // Write the table of multiples required by scalarbase.
-void write_base_multiples (const char *name);
+EXPORTFN void write_base_multiples (const char *name);
+
 // Write the table of multiples required by the wNAF multiplication of the
 // base.
-void write_summands (const char *name);
+EXPORTFN void write_summands (const char *name);
 
 
 // Reduce mod L, where L=order of curve.
-void reduce (uint8_t *dst, const uint8_t src[64]);
+EXPORTFN void reduce (uint8_t *dst, const uint8_t src[64]);
 typedef int32_t Limbtype;
-void modL (uint8_t r[32], Limbtype x[64]);
+EXPORTFN void modL (uint8_t r[32], Limbtype x[64]);
 
 
 /////////////////////////////////////////
@@ -161,30 +177,30 @@ void modL (uint8_t r[32], Limbtype x[64]);
 // Compute the scalar corresponding to a seed. The scalar is the
 // corresponding private scalar in X25519. The seed is what Ed25519 calls the
 // private key.
-void ed25519_seed_to_scalar (uint8_t scalar[32], const uint8_t seed[32]);
+EXPORTFN void ed25519_seed_to_scalar (uint8_t scalar[32], const uint8_t seed[32]);
 
 // Same as sign_bmx but using the SHA-512 hash function. A is the public key
 // used to compute H(R,A,M). It is otherwise not used for signing. It should
 // be the Ed25519 public key in the context of Ed25519.
-void sign_sha (const uint8_t *m, size_t mlen, const uint8_t A[32],
-               const uint8_t scalar[32], uint8_t sig[64]);
+EXPORTFN void sign_sha (const uint8_t *m, size_t mlen, const uint8_t A[32],
+                        const uint8_t scalar[32], uint8_t sig[64]);
 
 // Sign the message m[0..mlen[ and store the signature in sig. ey is the
 // public key in Edwards Y format and seed is the Ed25519 private key. This
 // is similar to sign_sha(), but hashes the seed to obtain the private scalar
 // and the hash prefix used to obtain r.
-void sign_sey (const uint8_t *m, size_t mlen, const uint8_t ey[32],
-               const uint8_t seed[32], uint8_t sig[64]);
+EXPORTFN void sign_sey (const uint8_t *m, size_t mlen, const uint8_t ey[32],
+                        const uint8_t seed[32], uint8_t sig[64]);
 
 // Verify the message m[0..mlen[ with the signature sig[0..63] using the
 // public key stored in pub. If edwards is true then pub will be interpreted
 // as an Edwards Y key. If edwards is false pub will be interpreted as a
 // Montgomery X key. Return 0 if the signature is valid.
-int verify_sey (const uint8_t *m, size_t mlen, const uint8_t sig[64],
-                const uint8_t pub[32], bool edwards=true);
+EXPORTFN int verify_sey (const uint8_t *m, size_t mlen, const uint8_t sig[64],
+                         const uint8_t pub[32], bool edwards=true);
 
 // Given the seed compute the corresponding Ed25519 public key.
-void ed25519_seed_to_ey (uint8_t ey[32], const uint8_t seed[32]);
+EXPORTFN void ed25519_seed_to_ey (uint8_t ey[32], const uint8_t seed[32]);
 
 
 ///////////////////////////////////////////
@@ -193,7 +209,7 @@ void ed25519_seed_to_ey (uint8_t ey[32], const uint8_t seed[32]);
 // negx = -x mod L (L == order or the group). If you have a scalar that
 // produces a public key with the sign bit set, you can use negx. It will
 // produce the same public key but with the opposite sign bit value.
-void negate_scalar (uint8_t negx[32], const uint8_t x[32]);
+EXPORTFN void negate_scalar (uint8_t negx[32], const uint8_t x[32]);
 
 
 // Pass in ey the Edwards Y with the sign bit. If the sign bit is set then
@@ -202,8 +218,8 @@ void negate_scalar (uint8_t negx[32], const uint8_t x[32]);
 // where the scalar is negated if required to ensure that all sign bits are
 // zero.
 
-void sign_conv (const uint8_t *m, size_t len, const uint8_t ey[32],
-                const uint8_t sc[32], uint8_t sig[64]);
+EXPORTFN void sign_conv (const uint8_t *m, size_t len, const uint8_t ey[32],
+                         const uint8_t sc[32], uint8_t sig[64]);
 
 
 
@@ -285,12 +301,12 @@ inline int cu25519_verify (const uint8_t *m, size_t mlen,
 
 // Pass as input xs, filled with random bytes. The function will adjust xs
 // and will compute xp and the corresponding representative.
-void cu25519_elligator2_gen (Cu25519Sec *xs, Cu25519Pub *xp, Cu25519Rep *rep);
+EXPORTFN void cu25519_elligator2_gen (Cu25519Sec *xs, Cu25519Pub *xp, Cu25519Rep *rep);
 
 // Take a representative and convert it into a key. This key can be used only
 // for the computation of shared secrets, not for signing or verifying
 // signatures. It does not have the sign bit set.
-void cu25519_elligator2_rev (Cu25519Pub *u, const Cu25519Rep & rep);
+EXPORTFN void cu25519_elligator2_rev (Cu25519Pub *u, const Cu25519Rep & rep);
 
 
 

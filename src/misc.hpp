@@ -47,7 +47,7 @@
 
 
 // Read little endian values from unaligned storage. GCC optimizes this to
-// just a single load with bswap if required.
+// just a single load.
 inline uint32_t leget32 (const void *vp)
 {
 	return (uint32_t(((uint8_t*)vp)[3]) << 24) |
@@ -67,51 +67,57 @@ inline uint64_t leget64 (const void *vp)
 	       ((uint8_t*)vp)[0];
 }
 
-// Store little endian values in unaligned storage.
-
-#if __BYTE_ORDER__ && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__ || __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
-// We know that we are big endian or little endian. Therefore the byte
-// swapping that may eventually be required is the same for putting and
-// getting. The following get optimized by GCC to a single mov (with bswap if
-// required).
-inline void leput32 (void *p, uint32_t v)
+inline int is_big_endian()
 {
-	v = leget32 (&v);
-	memcpy (p, &v, 4);
+	union {
+		uint32_t i;
+		char b[4];
+	} u = {0x01020304};
+
+	return u.b[0] == 1;
 }
 
-inline void leput64 (void *p, uint64_t v)
+
+inline uint64_t byte_swap_64 (uint64_t value)
 {
-	v = leget64 (&v);
-	memcpy (p, &v, 8);
+	// Compiled into a single bswap instruction by GCC.
+	return  ((value & 0xFF00000000000000u) >> 56u) |
+	        ((value & 0x00FF000000000000u) >> 40u) |
+	        ((value & 0x0000FF0000000000u) >> 24u) |
+	        ((value & 0x000000FF00000000u) >>  8u) |
+	        ((value & 0x00000000FF000000u) <<  8u) |
+	        ((value & 0x0000000000FF0000u) << 24u) |
+	        ((value & 0x000000000000FF00u) << 40u) |
+	        ((value & 0x00000000000000FFu) << 56u);
 }
 
-#else
-// Generic functions that work for all byte orders, even PDP if you have one.
-// However GCC does not optimize them to a single instruction.
-inline void leput32 (void *p, uint32_t v)
+// Optimized by GCC to a single mov.
+inline void leput64 (void *dest, uint64_t value)
 {
-	uint8_t *u = (uint8_t*)p;
-	u[3] = v >> 24;
-	u[2] = (v >> 16) & 0xFF;
-	u[1] = (v >> 8) & 0xFF;
-	u[0] = v & 0xFF;
+	if (is_big_endian()) {
+		value = byte_swap_64 (value);
+	}
+	memcpy (dest, &value, sizeof(uint64_t));
 }
 
-inline void leput64 (void *p, uint64_t v)
+inline uint32_t byte_swap_32 (uint32_t x)
 {
-	uint8_t *u = (uint8_t*)p;
-	u[7] = v >> 56;
-	u[6] = (v >> 48) & 0xFF;
-	u[5] = (v >> 40) & 0xFF;
-	u[4] = (v >> 32) & 0xFF;
-	u[3] = (v >> 24) & 0xFF;
-	u[2] = (v >> 16) & 0xFF;
-	u[1] = (v >> 8) & 0xFF;
-	u[0] = v & 0xFF;
+	// Compiled into a bswap instruction by GCC.
+	return ((x & 0x000000FF) << 24) |
+	       ((x & 0x0000FF00) << 8)  |
+	       ((x & 0x00FF0000) >> 8)  |
+	       ((x & 0xFF000000) >> 24);
 }
 
-#endif
+inline void leput32 (void *dest, uint32_t value)
+{
+	if (is_big_endian()) {
+		value = byte_swap_32 (value);
+	}
+	memcpy (dest, &value, sizeof (uint32_t));
+}
+
+
 
 
 
@@ -121,16 +127,16 @@ namespace amber {    namespace AMBER_SONAME  {
 
 // Return 0 if both byte arrays are equal. Another value if they differ. This
 // works in constant time.
-int crypto_neq(const void *v1, const void *v2, size_t n);
+EXPORTFN int crypto_neq(const void *v1, const void *v2, size_t n);
 
 // Constant time check if v1[0..n[ is zero. Returns 1 if zero. O otherwise.
-int is_zero(const void *v1, size_t n);
+EXPORTFN int is_zero(const void *v1, size_t n);
 
 // Out of line version of memset(0)
-void crypto_bzero(void *p, size_t n);
+EXPORTFN void crypto_bzero(void *p, size_t n);
 
 // Helper to perform clean up of the stack.
-class Janitor {
+class EXPORTFN Janitor {
 	void *p;
 	size_t n;
 public:
@@ -148,14 +154,17 @@ public:
 // resulting string in groups of 4 letters. Encodes every 5 bytes into 8
 // characters (60% expansion). For a line of 80 characters pass 50 bytes. For
 // line of 72 characters pass 45bytes.
+EXPORTFN
 void base32enc(const uint8_t *by, size_t nbytes, std::string &s, bool sep=true,
                bool terminators=false, bool lowercase=false);
-int  base32dec(const char *s, std::vector<uint8_t> &v, ptrdiff_t n=-1);
+
+EXPORTFN
+int base32dec(const char *s, std::vector<uint8_t> &v, ptrdiff_t n=-1);
 
 
 // Base 58 encoding.
-void base58enc(const uint8_t *num, size_t nsize, std::string &res);
-void base58dec(const char *s, std::vector<uint8_t> &res, size_t = SIZE_MAX);
+EXPORTFN void base58enc(const uint8_t *num, size_t nsize, std::string &res);
+EXPORTFN void base58dec(const char *s, std::vector<uint8_t> &res, size_t = SIZE_MAX);
 
 
 
@@ -168,6 +177,7 @@ void base58dec(const char *s, std::vector<uint8_t> &res, size_t = SIZE_MAX);
 // the resulting text in to lines. If you want to encode incrementally make
 // sure that you allways pass a multiple of 3 for the size nbytes, except for
 // the last block.
+EXPORTFN
 void base64enc(const unsigned char *bytes, size_t nbytes,
                std::string &dest, bool wrap, bool terminators);
 
@@ -176,6 +186,7 @@ void base64enc(const unsigned char *bytes, size_t nbytes,
 // it will always append. The decoding stops when n characters have read or
 // when a '=' is encountered. Non base 64 characters (A-Za-z0-9+/) are
 // ignored.
+EXPORTFN
 void base64dec(const char *s, std::vector<unsigned char> &v, size_t n=SIZE_MAX);
 
 
@@ -213,14 +224,20 @@ public:
 
 
 // Write and read a block as a sequence of hex digits.
+EXPORTFN
 void show_block(std::ostream &os, const char *label, const void *b,
                 size_t nbytes, int group=4);
+
+EXPORTFN
 void write_block(std::string &dst, const void *b, size_t nbytes);
+
+EXPORTFN
 ptrdiff_t read_block(const char *in, const char **next,
                      std::vector<uint8_t> &dst);
 
 
 // Get a password. On UNIX hide it.
+EXPORTFN
 void get_password(const char *prompt, std::string &pass);
 
 
@@ -228,6 +245,7 @@ void get_password(const char *prompt, std::string &pass);
 // buffer call as update_crc32(buf,count). To maintain a running count (for
 // instance while outputting to a stream) use crc =
 // update_crc32(buf,count,crc).
+EXPORTFN
 uint_fast32_t update_crc32(const void *buf, size_t nbytes,
                            uint_fast32_t crc=0);
 

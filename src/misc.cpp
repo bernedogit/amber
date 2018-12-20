@@ -44,7 +44,7 @@
 
 namespace amber {    namespace AMBER_SONAME {
 
-EXPORTFN
+
 int crypto_neq(const void *vp1, const void *vp2, size_t n)
 {
 	const unsigned char *v1 = (const unsigned char*)vp1;
@@ -60,7 +60,7 @@ int crypto_neq(const void *vp1, const void *vp2, size_t n)
 	return diff ^ 1;
 }
 
-EXPORTFN
+
 int is_zero(const void *vp1, size_t n)
 {
 	const unsigned char *v1 = (const unsigned char*)vp1;
@@ -75,7 +75,7 @@ int is_zero(const void *vp1, size_t n)
 }
 
 
-EXPORTFN
+
 void crypto_bzero(void *p, size_t n)
 {
 	char *pc = (char*)p;
@@ -120,7 +120,7 @@ Fill_dec_table::Fill_dec_table()
 
 static Fill_dec_table initer;
 
-EXPORTFN
+
 void base32enc(const uint8_t *by, size_t nbytes, std::string &s, bool sep,
                bool terminators, bool lowercase)
 {
@@ -161,7 +161,7 @@ void base32enc(const uint8_t *by, size_t nbytes, std::string &s, bool sep,
 	}
 }
 
-EXPORTFN
+
 int base32dec(const char *s, std::vector<uint8_t> &v, ptrdiff_t n)
 {
 	v.clear();
@@ -220,7 +220,7 @@ inline void base64_add_three(unsigned char b0, unsigned char b1,
 
 
 
-EXPORTFN
+
 void base64enc(const unsigned char *bytes, size_t nbytes,
                std::string &dest, bool wrap, bool terminators)
 {
@@ -263,7 +263,7 @@ void base64enc(const unsigned char *bytes, size_t nbytes,
 }
 
 
-EXPORTFN
+
 void base64dec(const char *s, std::vector<unsigned char> &v, size_t n)
 {
 	uint32_t val, cumul = 0;
@@ -439,7 +439,7 @@ void Base64_decoder::flush_append (std::vector<unsigned char> *v)
 
 
 // Just show a block of bytes in hexadecimal notation, with grouping.
-EXPORTFN
+
 void show_block(std::ostream &os, const char *label, const void *vb, size_t nbytes, int group)
 {
 	const uint8_t *b = (const uint8_t*)vb;
@@ -453,7 +453,7 @@ void show_block(std::ostream &os, const char *label, const void *vb, size_t nbyt
 }
 
 // Write an hexadecimal block.
-EXPORTFN
+
 void write_block(std::string &dst, const void *vb, size_t nbytes)
 {
 	std::ostringstream os;
@@ -481,7 +481,7 @@ inline int hexval(char c)
 
 
 
-EXPORTFN
+
 ptrdiff_t read_block(const char *in, const char **next, std::vector<uint8_t> &dst)
 {
 	dst.clear();
@@ -508,7 +508,7 @@ ptrdiff_t read_block(const char *in, const char **next, std::vector<uint8_t> &ds
 
 #ifdef _WIN32
 
-EXPORTFN
+
 void get_password (const char *prompt, std::string &pass)
 {
 	std::cout << prompt << " ";
@@ -517,7 +517,7 @@ void get_password (const char *prompt, std::string &pass)
 
 #else
 
-EXPORTFN
+
 void get_password(const char *prompt, std::string &pass)
 {
 	pass = getpass(prompt);
@@ -670,7 +670,7 @@ static uint_fast32_t crc_table[] = {
 };
 
 
-EXPORTFN
+
 uint_fast32_t update_crc32(const void *buf, size_t nbytes, uint_fast32_t crc)
 {
 	crc ^= 0xffffffffL;

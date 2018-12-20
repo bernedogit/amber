@@ -45,31 +45,31 @@ namespace amber {   inline  namespace AMBER_SONAME {
 // an error then -1 is returned. It returns 0 when there are no more
 // arguments to process. The argc and argv are modified to remove the option
 // arguments.
-int hasopt (int *argcp, char **argv, const char *opts, const char **val);
+EXPORTFN int hasopt (int *argcp, char **argv, const char *opts, const char **val);
 
 
 // Check if a long string flag was passed in the command line and remove it
 // from the arguments. The longopt must include the hyphen or the double
 // hyphen.
-bool hasopt_long (int *argc, char **argv, const char *longopt);
+EXPORTFN bool hasopt_long (int *argc, char **argv, const char *longopt);
 
 
 // Check if a long string option with a value was passed in the command line
 // and remove it from the arguments. The longopt argument must include the
 // hyphen or the double hyphen.
-bool hasopt_long (int *argc, char **argv, const char *longopt,
-                  const char **val);
+EXPORTFN bool hasopt_long (int *argc, char **argv, const char *longopt,
+                           const char **val);
 
 
 // Return a string which contains the error description, including any nested
 // exceptions.
-std::string describe (const std::exception &e);
+EXPORTFN std::string describe (const std::exception &e);
 
 
 // Run the real_main. Catch and show any exceptions.
-int run_main (int (*real_main)());
-int run_main (void (*real_main)());
-int run_main (int argc, char **argv, int (*real_main)(int,char**));
+EXPORTFN int run_main (int (*real_main)());
+EXPORTFN int run_main (void (*real_main)());
+EXPORTFN int run_main (int argc, char **argv, int (*real_main)(int,char**));
 
 
 // Placeholder for internationalization. When the program is adapted for
@@ -105,6 +105,7 @@ inline const char * _(const char *s) { return s; }
 // the format is %s the bool will be written as a string.
 
 // Auxiliary function.
+EXPORTFN
 void process_format_stream (std::ostream &os, const char **fmt,
                             int *argnum, int *saved_prec, int *wa, int *pa);
 

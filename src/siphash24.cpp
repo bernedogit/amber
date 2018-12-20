@@ -1,4 +1,5 @@
-#include "siphash24.hpp"                       
+#include "siphash24.hpp"
+#include "misc.hpp"
 #include "symmetric.hpp"
 
 
@@ -10,12 +11,12 @@ namespace amber {   namespace AMBER_SONAME {
 // https://github.com/flyingmutant/siphash and licensed with the MIT license.
 
 
-inline uint64_t sip_srotl64(uint64_t u, int s)
+inline uint64_t sip_srotl64 (uint64_t u, int s)
 {
 	return (u << s) | (u >> (64 - s));
 }
 
-inline uint8_t sip_get8(void const* data, size_t ix)
+inline uint8_t sip_get8 (void const* data, size_t ix)
 {
 	return *((uint8_t const*)data + ix);
 }
@@ -59,13 +60,15 @@ inline uint64_t sip_last(const uint8_t *u8, size_t size)
 {
 	uint64_t v = 0;
 
+	// The purpose of the fall through comments below is to keep the compiler
+	// happy and prevent it from issuing wrong warnings.
 	switch (size % 8) {
-	case 7:  v |= uint64_t(u8[6]) << 48;
-	case 6:  v |= uint64_t(u8[5]) << 40;
-	case 5:  v |= uint64_t(u8[4]) << 32;
-	case 4:  v |= uint64_t(u8[3]) << 24;
-	case 3:  v |= uint64_t(u8[2]) << 16;
-	case 2:  v |= uint64_t(u8[1]) << 8;
+	case 7:  v |= uint64_t(u8[6]) << 48;    // fall through
+	case 6:  v |= uint64_t(u8[5]) << 40;    // fall through
+	case 5:  v |= uint64_t(u8[4]) << 32;    // fall through
+	case 4:  v |= uint64_t(u8[3]) << 24;    // fall through
+	case 3:  v |= uint64_t(u8[2]) << 16;    // fall through
+	case 2:  v |= uint64_t(u8[1]) << 8;     // fall through
 	case 1:  v |= uint64_t(u8[0]);
 	}
 	v |= uint64_t(size & 0xFF) << 56;
@@ -163,20 +166,32 @@ uint64_t Siphash24::final()
 }
 
 
-static uint64_t key[2];
-struct Init_key {
-	Init_key() { randombytes_buf(key, sizeof key); }
+struct Two_longs {
+	uint64_t sk[2];
+	Two_longs();
 };
-static Init_key ikey;
+Two_longs::Two_longs()
+{
+	randombytes_buf (sk, sizeof sk);
+}
+
+const uint64_t * get_static_key()
+{
+	static Two_longs ska;
+	return ska.sk;
+}
+
 
 uint64_t siphash24 (void const *data, size_t size)
 {
-	return siphash24(data, size, key[0], key[1]);
+	static const uint64_t *k = get_static_key();
+	return siphash24(data, size, k[0], k[1]);
 }
 
 void Siphash24::reset()
 {
-	reset (key[0], key[1]);
+	static const uint64_t *k = get_static_key();
+	reset (k[0], k[1]);
 }
 
 

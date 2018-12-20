@@ -105,7 +105,6 @@ static void blake2b_compress(blake2b_ctx *ctx, int last)
 // Initialize the hashing context "ctx" with optional key "key".
 //      1 <= outlen <= 64 gives the digest size in bytes.
 //      Secret key (also <= 64 bytes) is optional (keylen = 0).
-EXPORTFN
 int blake2b_init (blake2b_ctx *ctx, size_t outlen,
                   const void *key, size_t keylen)        // (keylen=0: no key)
 {
@@ -142,7 +141,6 @@ int blake2b_init (blake2b_ctx *ctx, size_t outlen,
 
 
 
-EXPORTFN
 int blake2b_init (blake2b_ctx *ctx, size_t outlen,
                   const void *key, size_t keylen, Blake2b_param *par)
 {
@@ -250,7 +248,6 @@ void Blake2xb::output (uint8_t *dest)
 
 
 // Add "inlen" bytes from "in" into the hash.
-EXPORTFN
 void blake2b_update (blake2b_ctx *ctx,
                     const void *in, size_t inlen)       // data bytes
 {
@@ -270,7 +267,6 @@ void blake2b_update (blake2b_ctx *ctx,
 
 // Generate the message digest (size given in init).
 //      Result placed in "out".
-EXPORTFN
 void blake2b_final (blake2b_ctx *ctx, void *out)
 {
 	size_t i;
@@ -291,7 +287,6 @@ void blake2b_final (blake2b_ctx *ctx, void *out)
 }
 
 // Convenience function for all-in-one computation.
-EXPORTFN
 int blake2b (void *out, size_t outlen,
     const void *key, size_t keylen,
     const void *in, size_t inlen)
@@ -392,7 +387,6 @@ static void blake2s_compress(blake2s_ctx *ctx, int last)
 // Initialize the hashing context "ctx" with optional key "key".
 //      1 <= outlen <= 32 gives the digest size in bytes.
 //      Secret key (also <= 32 bytes) is optional (keylen = 0).
-EXPORTFN
 int blake2s_init (blake2s_ctx *ctx, size_t outlen,
     const void *key, size_t keylen)     // (keylen=0: no key)
 {
@@ -421,7 +415,6 @@ int blake2s_init (blake2s_ctx *ctx, size_t outlen,
 }
 
 
-EXPORTFN
 int blake2s_init (blake2s_ctx *ctx, size_t outlen,
     const void *key, size_t keylen, Blake2s_param *par)     // (keylen=0: no key)
 {
@@ -466,7 +459,6 @@ int blake2s_init (blake2s_ctx *ctx, size_t outlen,
 }
 
 // Add "inlen" bytes from "in" into the hash.
-EXPORTFN
 void blake2s_update(blake2s_ctx *ctx,
     const void *in, size_t inlen)       // data bytes
 {
@@ -486,7 +478,6 @@ void blake2s_update(blake2s_ctx *ctx,
 
 // Generate the message digest (size given in init).
 //      Result placed in "out".
-EXPORTFN
 void blake2s_final(blake2s_ctx *ctx, void *out)
 {
 	size_t i;
@@ -507,7 +498,6 @@ void blake2s_final(blake2s_ctx *ctx, void *out)
 }
 
 // Convenience function for all-in-one computation.
-EXPORTFN
 int blake2s(void *out, size_t outlen,
     const void *key, size_t keylen,
     const void *in, size_t inlen)
@@ -556,7 +546,7 @@ void Blake2xs::output_block (uint32_t bn, uint8_t block[32])
 
 void Blake2xs::output (uint8_t *dest)
 {
-	size_t pending = xof_digest_length;
+    size_t pending = xof_digest_length;
 	uint32_t bn = 0;
 	while (pending >= 32) {
 		output_block (bn++, dest);

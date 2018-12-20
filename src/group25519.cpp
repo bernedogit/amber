@@ -131,7 +131,7 @@ static void show_edwards (std::ostream &os, const char *label, const Edwards &ed
 	x = X(Z-Y)h = X(Z-Y)/Z/(Z-Y) = X/Z
 
 */
-EXPORTFN
+
 void edwards_to_mx (uint8_t res[32], const Edwards &p)
 {
 	Fe zmy, h;
@@ -151,7 +151,7 @@ void edwards_to_mx (uint8_t res[32], const Edwards &p)
 }
 
 // Store the point as Edwards y with the sign bit in bit 255.
-EXPORTFN
+
 void edwards_to_ey (uint8_t res[32], const Edwards &p)
 {
 	Fe inv, tmp;
@@ -176,7 +176,7 @@ void edwards_to_ey (uint8_t res[32], const Edwards &p)
 	y = wY
 
 */
-EXPORTFN
+
 void edwards_to_ey_mx (uint8_t ey[32], uint8_t mx[32], const Edwards &p)
 {
 	Fe zmy, h, w;
@@ -227,7 +227,7 @@ void edwards_to_ey_mx (uint8_t ey[32], uint8_t mx[32], const Edwards &p)
 // non zero value.
 
 // If neg is true then select the negative value.
-EXPORTFN
+
 int mx_to_edwards (Edwards &res, const uint8_t mx[32], bool neg)
 {
 	Fe u, t1, t2, a, b, h, s;
@@ -292,7 +292,7 @@ inline bool is_zero_vartime (Fe &fe)
 */
 
 // Return 0 if ok. -1 on errors.
-EXPORTFN
+
 int ey_to_edwards (Edwards &res, const uint8_t ey[32], bool neg)
 {
 	Fe u, v, y, y2, tmp1, tmp2, v4, x2;
@@ -343,7 +343,7 @@ int ey_to_edwards (Edwards &res, const uint8_t ey[32], bool neg)
 
 
 // Convert compressed Edwards y to compressed Montgomery x, with sign bits.
-EXPORTFN
+
 void ey_to_mx (uint8_t mx[32], const uint8_t ey[32])
 {
 	Fe y, t1, t2;
@@ -359,7 +359,7 @@ void ey_to_mx (uint8_t mx[32], const uint8_t ey[32])
 }
 
 // Convert compressed Montgomery x to compressed Edwards y, with sign bits.
-EXPORTFN
+
 void mx_to_ey (uint8_t ey[32], const uint8_t mx[32])
 {
 	// y = (u - 1)/(u + 1)
@@ -374,7 +374,7 @@ void mx_to_ey (uint8_t ey[32], const uint8_t mx[32])
 	ey[31] |= mx[31] & 0x80;
 }
 
-EXPORTFN
+
 std::ostream & operator<< (std::ostream &os, const Edwards &rhs)
 {
 	uint8_t ey[32];
@@ -439,7 +439,7 @@ inline void point_add (Edwards &res, const Edwards &p, const Edwards &q)
 	mul (res.z, f, g);
 }
 
-EXPORTFN
+
 void add (Edwards &res, const Edwards &a, const Edwards &b)
 {
 	point_add (res, a, b);
@@ -598,7 +598,7 @@ inline void point_double (Edwards &res, const Edwards &p)
 	mul (res.z, f, g);
 }
 
-EXPORTFN
+
 void negate (Edwards &res, const Edwards &p)
 {
 	negate (res.x, p.x);
@@ -617,7 +617,7 @@ inline void cswap (Edwards &a, Edwards &b, uint32_t flag)
 }
 
 // res = sP
-EXPORTFN
+
 void scalarmult (Edwards &res, const Edwards &p, const uint8_t s[32])
 {
 	int i;
@@ -664,7 +664,7 @@ inline void select (Edwards &res, const Edwards &p, uint32_t flag)
 }
 
 // Fixed window, 4 bits at a time.
-EXPORTFN
+
 void scalarmult_fw (Edwards &res, const Edwards &p, const uint8_t s[32])
 {
 	int i;
@@ -781,7 +781,7 @@ void write_coeffs (std::ostream &os, const Fe &fe)
 	}
 	os << " }" << std::setfill(' ') << std::dec;
 }
-EXPORTFN
+
 void write_base_multiples (const char *name)
 {
 	std::ofstream os(name);
@@ -861,7 +861,7 @@ static void compute_multiple (Precomputed &res, int8_t smult, int i)
 	select (res, neg, negative);
 }
 
-EXPORTFN
+
 void scalarbase (Edwards &res, const uint8_t scalar[32])
 {
 	int8_t sc[64];
@@ -926,7 +926,7 @@ static const Limbtype L[32] =  {
 // remove then we remove the upper bits. We may end up with a negative
 // number. The last step removes L*carry, with carry being signed.
 
-EXPORTFN void modL (uint8_t r[32], Limbtype x[64])
+void modL (uint8_t r[32], Limbtype x[64])
 {
 	Limbtype carry;
 	int i, j;
@@ -961,7 +961,7 @@ EXPORTFN void modL (uint8_t r[32], Limbtype x[64])
 }
 
 
-EXPORTFN
+
 void reduce (uint8_t *dst, const uint8_t src[64])
 {
 	Limbtype x[64];
@@ -985,7 +985,7 @@ void reduce (uint8_t *dst, const uint8_t src[64])
 
 // We follow RFC 8032 and Keccak and allow a context prefix for the hash
 // function.  This transforms the hash function H(X) into H(prefix||X)
-EXPORTFN
+
 void sign_bmx (const char *prefix, const uint8_t *m, size_t mlen,
                const uint8_t A[32], const uint8_t scalar[32], uint8_t sig[64])
 {
@@ -1099,7 +1099,7 @@ static void compute_naf_window (int8_t d[256], const uint8_t s[32], int w = 5)
 }
 
 // Variable time res = sB
-EXPORTFN
+
 void scalarmult_wnaf (Edwards &res, const Edwards &p, const uint8_t s[32])
 {
 	int8_t d[256];
@@ -1126,7 +1126,7 @@ void scalarmult_wnaf (Edwards &res, const Edwards &p, const uint8_t s[32])
 }
 
 
-EXPORTFN
+
 void write_summands (const char *name)
 {
 	std::ofstream os (name);
@@ -1357,7 +1357,7 @@ static const Summand base_summands[16] = {
 
 
 // Variable time res = s1*B + s2*P, where B is the base point.
-EXPORTFN
+
 void scalarmult_wnaf (Edwards &res, const uint8_t s1[32],
                       const Edwards &p, const uint8_t s2[32])
 {
@@ -1390,6 +1390,7 @@ void scalarmult_wnaf (Edwards &res, const uint8_t s1[32],
 }
 
 
+
 // Order of the group.
 static const uint8_t order[32] = {
 	0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58,
@@ -1398,7 +1399,7 @@ static const uint8_t order[32] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10
 };
 
-EXPORTFN
+
 int verify_bmx (const char *prefix, const uint8_t *m, size_t mlen,
                 const uint8_t sig[64], const uint8_t mx[32])
 {
@@ -1436,7 +1437,7 @@ int verify_bmx (const char *prefix, const uint8_t *m, size_t mlen,
 }
 
 
-EXPORTFN
+
 void ed25519_seed_to_scalar (uint8_t scalar[32], const uint8_t seed[32])
 {
 	uint8_t scalar_r[64];
@@ -1445,7 +1446,7 @@ void ed25519_seed_to_scalar (uint8_t scalar[32], const uint8_t seed[32])
 	mask_scalar (scalar);
 }
 
-EXPORTFN
+
 void sign_sey (const uint8_t *m, size_t mlen,
                const uint8_t A[32], const uint8_t seed[32], uint8_t sig[64])
 {
@@ -1495,7 +1496,7 @@ void sign_sey (const uint8_t *m, size_t mlen,
 	modL (sig + 32, x);
 }
 
-EXPORTFN
+
 int verify_sey (const uint8_t *m, size_t mlen, const uint8_t sig[64],
                 const uint8_t pub[32], bool edwards)
 {
@@ -1536,7 +1537,7 @@ int verify_sey (const uint8_t *m, size_t mlen, const uint8_t sig[64],
 	return crypto_neq (sig, newrp, 32);
 }
 
-EXPORTFN
+
 void ed25519_seed_to_ey (uint8_t ey[32], const uint8_t seed[32])
 {
 	uint8_t h[64];
@@ -1558,7 +1559,7 @@ static const uint8_t L1[32] = { 0xec, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12,
 // Compute negx = - x mod m. This is the same as computing negx = (m-1)*x mod
 // = (m*x - x) mod m = m*x mod m - x mod m. But m*x mod m = 0. So multiplying
 // by m-1 mod m is the same as negating.
-EXPORTFN
+
 void negate_scalar (uint8_t negx[32], const uint8_t x[32])
 {
 	Limbtype r[64];
@@ -1574,7 +1575,7 @@ void negate_scalar (uint8_t negx[32], const uint8_t x[32])
 	modL (negx, r);
 }
 
-EXPORTFN
+
 void sign_sha (const uint8_t *m, size_t mlen, const uint8_t A[32],
                const uint8_t scalar[32], uint8_t sig[64])
 {
@@ -1620,7 +1621,7 @@ void sign_sha (const uint8_t *m, size_t mlen, const uint8_t A[32],
 	modL (sig + 32, x);
 }
 
-EXPORTFN
+
 void sign_conv (const uint8_t *m, size_t len, const uint8_t ey[32],
                 const uint8_t sc[32], uint8_t sig[64])
 {
@@ -1640,7 +1641,7 @@ void sign_conv (const uint8_t *m, size_t len, const uint8_t ey[32],
 
 // Pass as input xs, filled with random bytes. The function will adjust xs
 // and will compute xp and the corresponding representative.
-EXPORTFN
+
 void cu25519_elligator2_gen (Cu25519Sec *xs, Cu25519Pub *xp, Cu25519Rep *rep)
 {
 	mask_scalar (xs->b);
@@ -1665,7 +1666,7 @@ void cu25519_elligator2_gen (Cu25519Sec *xs, Cu25519Pub *xp, Cu25519Rep *rep)
 	rep->b[31] |= b & 0xC0;
 }
 
-EXPORTFN
+
 void cu25519_elligator2_rev (Cu25519Pub *u, const Cu25519Rep & rep)
 {
 	Fe fr, fu;

@@ -65,7 +65,9 @@ static void expand_file (const char *name, std::vector<std::string> *expanded)
 		dirent *de;
 		std::string root, comp;
 		root = name;
-		root += "/";
+		if (!root.empty() || root[root.size() - 1] != '/') {
+			root += "/";
+		}
 		while ((de = readdir(dir.get())) != NULL) {
 			if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0) continue;
 			comp = root + de->d_name;
@@ -285,7 +287,7 @@ void pack (std::ostream &os, int nf, char **files, bool compress, bool verbose)
 }
 
 
-EXPORTFN
+
 void plain_pack (const char *oname, int nf, char **files, bool compress, bool verbose)
 {
 	std::ofstream os (oname, os.binary);
@@ -295,7 +297,7 @@ void plain_pack (const char *oname, int nf, char **files, bool compress, bool ve
 	pack (os, nf, files, compress, verbose);
 }
 
-EXPORTFN
+
 void sym_pack (const char *oname, int nf, char **files, std::string &password,
                int bs, int bf, int shifts, bool compress, bool verbose)
 {
@@ -315,7 +317,7 @@ void sym_pack (const char *oname, int nf, char **files, std::string &password,
 	pack (os, nf, files, compress, verbose);
 }
 
-EXPORTFN
+
 void pub_pack (const char *oname, int nf, char **files, const Key &sender,
                const Key_list &rx, int bs, int bf, bool compress, bool verbose, bool spoof)
 {
@@ -418,7 +420,7 @@ static void pack_list (std::istream &is)
 	        comp_total, exp_total);
 }
 
-EXPORTFN
+
 void plain_pack_list (const char *iname)
 {
 	std::ifstream is(iname, is.binary);
@@ -428,7 +430,7 @@ void plain_pack_list (const char *iname)
 	pack_list (is);
 }
 
-EXPORTFN
+
 void sym_pack_list (const char *iname, std::string &password, int shifts_max)
 {
 	if (password.empty()) {
@@ -441,7 +443,7 @@ void sym_pack_list (const char *iname, std::string &password, int shifts_max)
 	pack_list (is);
 }
 
-EXPORTFN
+
 void pub_pack_list (const char *iname, const Key &rx, Cu25519Pub *sender, int *nrx)
 {
 	amber::ifstream is(iname, rx.pair, sender, nrx);
@@ -578,7 +580,7 @@ static void unpack (std::istream &is, int nf, char **files, bool verbose, bool c
 	}
 }
 
-EXPORTFN
+
 void plain_unpack (const char *packed, int nf, char **files,
                    bool verbose, bool console)
 {                  
@@ -589,7 +591,7 @@ void plain_unpack (const char *packed, int nf, char **files,
 	unpack (is, nf, files, verbose, console);
 }
 
-EXPORTFN
+
 void sym_unpack (const char *packed, int nf, char **files,
                  std::string &password, bool verbose, bool console, int shifts_max)
 {
@@ -603,7 +605,7 @@ void sym_unpack (const char *packed, int nf, char **files,
 	unpack (is, nf, files, verbose, console);
 }
 
-EXPORTFN
+
 void pub_unpack (const char *packed, int nf, char **files, const Key &rx,
                  Cu25519Pub *sender, int *nrx, bool verbose, bool console)
 {
@@ -631,7 +633,7 @@ static void unpack_all (std::istream &is, bool verbose, bool console)
 }
 
 
-EXPORTFN
+
 void plain_unpack_all(const char *packed, bool verbose, bool console)
 {
 	std::ifstream is(packed, is.binary);
@@ -641,7 +643,7 @@ void plain_unpack_all(const char *packed, bool verbose, bool console)
 	unpack_all (is, verbose, console);
 }
 
-EXPORTFN
+
 void sym_unpack_all(const char *packed, std::string &password, bool verbose,
                     bool console, int shifts_max)
 {
@@ -655,7 +657,7 @@ void sym_unpack_all(const char *packed, std::string &password, bool verbose,
 	unpack_all (is, verbose, console);
 }
 
-EXPORTFN
+
 void pub_unpack_all (const char *packed, const Key &rx,
                  Cu25519Pub *sender, int *nrx, bool verbose, bool console)
 {
@@ -787,7 +789,7 @@ void incremental_pack (std::fstream &fs, int nf, char **files, bool verbose)
 }
 
 
-EXPORTFN
+
 void plain_incremental_pack (const char *oname, int nf, char **files,  bool verbose)
 {
 	std::fstream fs (oname, fs.binary | fs.in | fs.out);

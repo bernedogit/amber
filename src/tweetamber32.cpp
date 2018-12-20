@@ -1,3 +1,30 @@
+/*
+ * Copyright (c) 2015-2018, Pelayo Bernedo.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+ * IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #include "tweetamber.hpp"
 #include <stdexcept>
 #include <string.h>
@@ -109,7 +136,7 @@ static void blake2b_compress(blake2b_ctx *ctx, int last)
 	for( i = 0; i < 8; ++i )
 		ctx->h[i] ^= v[i] ^ v[i + 8];
 }
-EXPORTFN
+
 int blake2b_init (blake2b_ctx *ctx, size_t outlen,
                   const void *key, size_t keylen)        // (keylen=0: no key)
 {
@@ -143,7 +170,7 @@ int blake2b_init (blake2b_ctx *ctx, size_t outlen,
 
 	return 0;
 }
-EXPORTFN
+
 void blake2b_update (blake2b_ctx *ctx, const void *in, size_t inlen)
 {
 	size_t i;
@@ -159,7 +186,7 @@ void blake2b_update (blake2b_ctx *ctx, const void *in, size_t inlen)
 		ctx->b[ctx->c++] = ((const uint8_t *) in)[i];
 	}
 }
-EXPORTFN
+
 void blake2b_final (blake2b_ctx *ctx, void *out)
 {
 	size_t i;
@@ -178,7 +205,7 @@ void blake2b_final (blake2b_ctx *ctx, void *out)
 			(ctx->h[i >> 3] >> (8 * (i & 7))) & 0xFF;
 	}
 }
-EXPORTFN
+
 int blake2b (void *out, size_t outlen,
              const void *key, size_t keylen,
              const void *in, size_t inlen)
@@ -264,7 +291,7 @@ static void blake2s_compress(blake2s_ctx *ctx, int last)
 // Initialize the hashing context "ctx" with optional key "key".
 //      1 <= outlen <= 32 gives the digest size in bytes.
 //      Secret key (also <= 32 bytes) is optional (keylen = 0).
-EXPORTFN
+
 int blake2s_init (blake2s_ctx *ctx, size_t outlen,
     const void *key, size_t keylen)     // (keylen=0: no key)
 {
@@ -293,7 +320,7 @@ int blake2s_init (blake2s_ctx *ctx, size_t outlen,
 }
 
 // Add "inlen" bytes from "in" into the hash.
-EXPORTFN
+
 void blake2s_update(blake2s_ctx *ctx,
     const void *in, size_t inlen)       // data bytes
 {
@@ -313,7 +340,7 @@ void blake2s_update(blake2s_ctx *ctx,
 
 // Generate the message digest (size given in init).
 //      Result placed in "out".
-EXPORTFN
+
 void blake2s_final(blake2s_ctx *ctx, void *out)
 {
 	size_t i;
@@ -348,7 +375,7 @@ typedef struct poly1305_state_internal_t {
 	unsigned char final;
 } poly1305_state_internal_t;
 
-EXPORTFN
+
 void poly1305_init(poly1305_context *ctx, const unsigned char key[32])
 {
 	poly1305_state_internal_t *st = (poly1305_state_internal_t *)ctx;
@@ -437,7 +464,7 @@ poly1305_blocks(poly1305_state_internal_t *st, const unsigned char *m, size_t by
 	st->h[3] = h3;
 	st->h[4] = h4;
 }
-EXPORTFN
+
 void poly1305_finish(poly1305_context *ctx, unsigned char mac[16])
 {
 	poly1305_state_internal_t *st = (poly1305_state_internal_t *)ctx;
@@ -524,7 +551,7 @@ void poly1305_finish(poly1305_context *ctx, unsigned char mac[16])
 	st->pad[2] = 0;
 	st->pad[3] = 0;
 }
-EXPORTFN
+
 void poly1305_update(poly1305_context *ctx, const unsigned char *m, size_t bytes)
 {
 	poly1305_state_internal_t *st = (poly1305_state_internal_t *)ctx;
@@ -565,7 +592,7 @@ void poly1305_update(poly1305_context *ctx, const unsigned char *m, size_t bytes
 
 // Support.
 
-EXPORTFN
+
 int crypto_equal (const void *vp1, const void *vp2, size_t n)
 {
 	const unsigned char *v1 = (const unsigned char*)vp1;
@@ -580,7 +607,7 @@ int crypto_equal (const void *vp1, const void *vp2, size_t n)
 	diff = (diff - 1) >> (sizeof(unsigned)*8 - 1);
 	return diff & 1;
 }
-EXPORTFN
+
 int crypto_neq (const void *vp1, const void *vp2, size_t n)
 {
 	const unsigned char *v1 = (const unsigned char*)vp1;
@@ -595,7 +622,7 @@ int crypto_neq (const void *vp1, const void *vp2, size_t n)
 	diff = (diff - 1) >> (sizeof(unsigned)*8 - 1);
 	return diff ^ 1;
 }
-EXPORTFN
+
 int is_zero(const void *vp1, size_t n)
 {
 	const unsigned char *v1 = (const unsigned char*)vp1;
@@ -635,7 +662,7 @@ inline void chacha_doubleround (uint32_t x[16])
 	chacha_quarterround (x + 3, x + 4, x +  9, x + 14);
 }
 
-EXPORTFN
+
 void chacha20 (uint8_t out[64], const uint32_t kn[12])
 {
 	int i;
@@ -680,7 +707,7 @@ void chacha20 (uint8_t out[64], const uint32_t kn[12])
 	leput32 (out + 60, x[15] + kn[11]);
 }
 
-EXPORTFN
+
 void chacha20 (uint8_t out[64], const Chakey &key, uint64_t n64, uint64_t bn)
 {
 	int i;
@@ -725,7 +752,7 @@ void chacha20 (uint8_t out[64], const Chakey &key, uint64_t n64, uint64_t bn)
 	leput32 (out + 60, x[15] + (n64 >> 32));
 }
 
-EXPORTFN
+
 void load (Chakey *kw, const uint8_t bytes[32])
 {
 	for (unsigned i = 0; i < 8; ++i) {
@@ -748,7 +775,7 @@ static void chacha208 (uint32_t b[16])
 	}
 }
 
-EXPORTFN
+
 void hchacha20 (Chakey *out, const uint8_t key[32], const uint8_t n[16])
 {
 	int i;
@@ -1067,7 +1094,7 @@ static void scrypt_romix2(unsigned char *b, int r, int N)
 	}
 }
 
-EXPORTFN
+
 void scrypt_blake2b (uint8_t *dk, size_t dklen,
                      const char *pwd, size_t plen,
                      const uint8_t *salt, size_t slen,
@@ -2539,7 +2566,7 @@ static int elligator2_p2r (Fe &r, const Fe &u, const Fe &v)
 
 // Pass as input xs, filled with random bytes. The function will adjust xs
 // and will compute xp and the corresponding representative.
-EXPORTFN
+
 void cu25519_elligator2_gen (Cu25519Sec *xs, Cu25519Pub *xp, Cu25519Rep *rep)
 {
 	mask_scalar (xs->b);
@@ -2637,7 +2664,7 @@ void cu25519_elligator2_rev (Cu25519Pub *u, const Cu25519Rep & rep)
 }
 
 
-EXPORTFN
+
 void cu25519_shared_secret (uint8_t sh[32], const Cu25519Pub &xp, const Cu25519Sec &xs)
 {
 	Fe b, r;
@@ -2645,7 +2672,7 @@ void cu25519_shared_secret (uint8_t sh[32], const Cu25519Pub &xp, const Cu25519S
 	montgomery_ladder (r, b, xs.b);
 	reduce_store (sh, r);
 }
-EXPORTFN
+
 void cu25519_generate (Cu25519Sec *xs, Cu25519Pub *xp)
 {
 	mask_scalar (xs->b);
@@ -2665,14 +2692,14 @@ void cu25519_generate (Cu25519Sec *xs, Cu25519Pub *xp)
 	xp->b[31] |= (tmp[0] & 1) << 7;
 }
 
-EXPORTFN
+
 void cu25519_sign (const char *prefix, const uint8_t *m, size_t mlen, const Cu25519Pub &xp,
                    const Cu25519Sec &xs, uint8_t sig[64])
 {
 	sign_bmx (prefix, m, mlen, xp.b, xs.b, sig);
 }
 
-EXPORTFN
+
 int cu25519_verify (const char *prefix, const uint8_t *m, size_t mlen, const uint8_t sig[64],
                     const Cu25519Pub &xp)
 {

@@ -1,3 +1,30 @@
+/*
+ * Copyright (c) 2017-2018, Pelayo Bernedo
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+ * IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #ifndef AMBER_NOISE_HPP
 #define AMBER_NOISE_HPP
 
@@ -24,12 +51,13 @@ inline void be16enc (void *b, uint16_t v) {
 // Blake2s based HKDF with interface suitable for Noise. v1 points to 32
 // bytes. If v2 is not null then it points to 32 bytes. If v3 is not null
 // then it points to 32 bytes.
+EXPORTFN
 void hkdf2s (const uint8_t ck[32], const uint8_t *ikm, size_t ilen,
              uint8_t *v1, uint8_t *v2=0, uint8_t *v3=0);
 
 
 // The CipherState object defined in Noise.
-class Cipher {
+class EXPORTFN Cipher {
 protected:
 	Chakey key;
 	uint64_t n;
@@ -133,7 +161,7 @@ public:
 // them. When finished() is true call split to get the transport cipher
 // states. Failure to satisfy the requirements of the handshake will throw an
 // exception.
-class Handshake : public Symmetric {
+class EXPORTFN Handshake : public Symmetric {
 	Cu25519Sec e_sec, s_sec;
 	Cu25519Pub e_pub, s_pub, re_pub, rs_pub;
 	uint8_t pskv[32];

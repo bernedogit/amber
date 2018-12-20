@@ -1,3 +1,30 @@
+/*
+ * Copyright (c) 2015-2018, Pelayo Bernedo
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+ * IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #include "group25519.hpp"
 #include "misc.hpp"
 #include "symmetric.hpp"
@@ -191,22 +218,29 @@ void measure(int n)
 		montgomery_base (ru, rv, rz, x2.xs.b);
 	}
 	t2 = Clock::now();
-	std::cout << "montgomery base: " << (t2 - t1)/n << '\n';
+	std::cout << "montgomery_base: " << (t2 - t1)/n << '\n';
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
 		montgomery_base (e2, x2.xs.b);
 	}
 	t2 = Clock::now();
-	std::cout << "montgomery base ed: " << (t2 - t1)/n << '\n';
+	std::cout << "montgomery_base ed output: " << (t2 - t1)/n << '\n';
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
 		montgomery_ladder (e2, edwards_base_point, x2.xs.b);
 	}
 	t2 = Clock::now();
-	std::cout << "montgomery ladder ed2: " << (t2 - t1)/n << '\n';
+	std::cout << "montgomery ladder ed input and output: " << (t2 - t1)/n << '\n';
 
+	t1 = Clock::now();
+	for (int i = 0; i < n; ++i) {
+		montgomery_ladder (e2, edwards_base_point, x2.xs.b);
+		edwards_to_mx (mx, e2);
+	}
+	t2 = Clock::now();
+	std::cout << "Edwards shared secret: " << (t2 - t1)/n << '\n';
 
 
 	t1 = Clock::now();
@@ -460,7 +494,7 @@ void test_sig()
 
 void real_main()
 {
-	measure(5000);
+	measure(2000);
 	test_bad_keys();
 	test_sig();
 }

@@ -41,24 +41,32 @@ namespace amber {   namespace AMBER_SONAME {
 
 
 // Pack files without encryption.
+EXPORTFN
 void plain_pack (const char *oname, int nf, char **files, bool compress, bool verbose);
+
 // List all the files in iname.
-void plain_pack_list (const char *iname);
+EXPORTFN void plain_pack_list (const char *iname);
+
 // Extract the given files.
-void plain_unpack (const char *packed, int nf, char **files,
-                   bool verbose, bool console);
-void plain_unpack_all(const char *packed, bool verbose, bool console);
+EXPORTFN
+void plain_unpack (const char *packed, int nf, char **files, bool verbose, 
+				   bool console);
+
+EXPORTFN
+void plain_unpack_all (const char *packed, bool verbose, bool console);
 
 
 // Pack the files files[0..nf[ into the file oname. Pass the password, the
 // block size and block filler size. Shifts is the shifts parameter for
 // scrypt_blake2s. Set verbose to true to output information while packing.
 // If the password is empty then the program will prompt the user.
+EXPORTFN
 void sym_pack(const char *oname, int nf, char **files, std::string &password,
               int bs, int bf, int shifts, bool compress, bool verbose);
 
 // List the files that are stored in the archive iname. If the password is
 // empty then the program will prompt the user.
+EXPORTFN
 void sym_pack_list (const char *iname, std::string &password, int shifts_max);
 
 // Unpack from the archive packed the files named files[0] to files[nf-1]. If
@@ -67,13 +75,14 @@ void sym_pack_list (const char *iname, std::string &password, int shifts_max);
 // then the program will prompt the user. Set verbose if you want more
 // information to be displayed while unpacking. Set console if you want to
 // show the contents of the packed files without unpacking them.
-void sym_unpack (const char *packed, int nf, char **files,
+EXPORTFN void sym_unpack (const char *packed, int nf, char **files,
                  std::string &password, bool verbose, bool console, int shifts_max);
 
 // Extract all the files from the archive. If the password is empty
 // then the program will prompt the user. Set verbose if you want more
 // information to be displayed while unpacking. Set console if you want to
 // show the contents of the packed files without unpacking them.
+EXPORTFN
 void sym_unpack_all (const char *packed, std::string &password, bool verbose,
                      bool console, int shifts_max);
 
@@ -86,12 +95,14 @@ void sym_unpack_all (const char *packed, std::string &password, bool verbose,
 // be used. Set verbose to display additional information while packing. Set
 // spoof to create an archive that looks like if it was encrypted by the
 // first recipient for the sender.
+EXPORTFN
 void pub_pack(const char *oname, int nf, char **files, const Key &sender,
               const Key_list &rx, int bs, int bf, bool compress,
               bool verbose, bool spoof);
 
 // Pass the decryption key in rx. It will list the contents of the archive
 // and put in sender the public key of the sender.
+EXPORTFN
 void pub_pack_list (const char *iname, const Key &rx, Cu25519Pub *sender, int *nrx);
 
 // Unpack the files whose names are stored in files[0..nf[. Pass the
@@ -99,12 +110,15 @@ void pub_pack_list (const char *iname, const Key &rx, Cu25519Pub *sender, int *n
 // sender. Set verbose for additional information while unpacking. Set
 // console if you want to display the contents of the packed files to the
 // console without unpacking them.
+EXPORTFN
 void pub_unpack (const char *packed, int nf, char **files, const Key &rx,
                  Cu25519Pub *sender, int *nrx, bool verbose, bool console);
+EXPORTFN
 void pub_unpack_all (const char *packed, const Key &rx,
                  Cu25519Pub *sender, int *nrx, bool verbose, bool console);
 
 
+EXPORTFN
 void plain_incremental_pack (const char *oname, int nf, char **files,  bool verbose);
 
 }}

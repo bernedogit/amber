@@ -28,7 +28,8 @@ public:
 };
 
 
-void EXPORTFN sha256 (const void *message, size_t len, uint8_t digest[32]);
+EXPORTFN
+void sha256 (const void *message, size_t len, uint8_t digest[32]);
 
 
 
@@ -52,7 +53,8 @@ public:
 	void final (uint8_t digest[64]);
 };
 
-EXPORTFN void sha512 (const void *message, size_t len, uint8_t digest[64]);
+EXPORTFN
+void sha512 (const void *message, size_t len, uint8_t digest[64]);
 
 
 

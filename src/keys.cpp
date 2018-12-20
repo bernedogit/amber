@@ -47,7 +47,7 @@ const char * get_sig_prefix()
 	return ksigh;
 }
 
-EXPORTFN
+
 void dump_key(std::ostream &os, const Key &k)
 {
 	format(os, _("Key for %s\n"), k.name);
@@ -62,7 +62,7 @@ void dump_key(std::ostream &os, const Key &k)
 
 
 
-EXPORTFN
+
 void list_key(const Key &k, std::ostream &os, bool pubonly, bool sigs,
               const Key_list *kl1, const Key_list *kl2, Key_encoding kenc)
 {
@@ -124,7 +124,7 @@ void list_key(const Key &k, std::ostream &os, bool pubonly, bool sigs,
 	os << '\n';
 }
 
-EXPORTFN
+
 void list_keys(const Key_list &kl, std::ostream &os, bool pubonly, bool sigs,
                const Key_list *names, Key_encoding kenc)
 {
@@ -139,7 +139,7 @@ void list_keys(const Key_list &kl, std::ostream &os, bool pubonly, bool sigs,
 
 // If the key is not present insert it. If it is present and the name is
 // identical then add the signatures that are not already present.
-EXPORTFN
+
 bool insert_key(Key_list &kl, const Key &k, bool force)
 {
 	Key_list::iterator i = kl.begin();
@@ -189,7 +189,7 @@ void hash_key(const Key &k, uint8_t hash[64])
 }
 
 
-EXPORTFN
+
 bool verify_key_sigs_ok (const Key &key, std::vector<bool> &valid)
 {
 	uint8_t hash[64];
@@ -345,7 +345,7 @@ void read_single_key (Protobuf_reader &pr, Key &k, bool recalc)
 }
 
 
-EXPORTFN
+
 int read_keys (std::istream &is, Key_list &kl, bool recalc, bool force)
 {
 	Key k;
@@ -372,7 +372,7 @@ int read_keys (std::istream &is, Key_list &kl, bool recalc, bool force)
 
 
 
-EXPORTFN
+
 int read_keys(const std::string &name, Key_list &kl, std::string &password,
               bool recalc, bool force, std::string *errinfo)
 {
@@ -411,7 +411,7 @@ int read_keys(const std::string &name, Key_list &kl, std::string &password,
 }
 
 
-EXPORTFN
+
 void write_key(Protobuf_writer &pw, const Key &key, bool pubonly)
 {
 	pw.start_group (top_key);
@@ -439,7 +439,7 @@ void write_key(Protobuf_writer &pw, const Key &key, bool pubonly)
 }
 
 
-EXPORTFN
+
 void write_keys(std::ostream &os, const Key_list &kl, bool pubonly)
 {
 	Key_list::const_iterator i = kl.begin();
@@ -458,7 +458,7 @@ void write_keys(std::ostream &os, const Key_list &kl, bool pubonly)
 	format(std::cout, _("Wrote %d keys\n"), count);
 }
 
-EXPORTFN
+
 void generate_master_from_secret(const uint8_t priv[32], const char *name, Key *key)
 {
 	key->clear();
@@ -475,7 +475,7 @@ void generate_master_from_secret(const uint8_t priv[32], const char *name, Key *
 	hash_key(*key, hash);
 	cu25519_sign (ksigh, hash, 64, key->pair, key->self_signature);
 }
-EXPORTFN
+
 void generate_master_key(const uint8_t priv[32], const char *name, Key *key)
 {
 	key->clear();
@@ -493,7 +493,7 @@ void generate_master_key(const uint8_t priv[32], const char *name, Key *key)
 	cu25519_sign (ksigh, hash, 64, key->pair, key->self_signature);
 }
 
-EXPORTFN
+
 void generate_work_key (const uint8_t priv[32], const char *name, Key *key, const Key &master)
 {
 	key->clear();
@@ -537,7 +537,7 @@ static bool idmatch(const Key &k, const std::string &name)
 }
 
 
-EXPORTFN
+
 void select_keys(const Key_list &kl, const std::vector<std::string> &names,
                  Key_list &dst)
 {
@@ -563,7 +563,7 @@ void select_keys(const Key_list &kl, const std::vector<std::string> &names,
 	}
 }
 
-EXPORTFN
+
 void select_last_keys(const Key_list &kl, const std::vector<std::string> &names,
                       Key_list &dst)
 {
@@ -613,7 +613,7 @@ void select_last_keys(const Key_list &kl, const std::vector<std::string> &names,
 
 
 
-EXPORTFN
+
 void select_keys(const Key_list &kl, const std::string &name, Key_list &dst)
 {
 	Key_list::const_iterator i = kl.begin();
@@ -633,7 +633,7 @@ void select_keys(const Key_list &kl, const std::string &name, Key_list &dst)
 	}
 }
 
-EXPORTFN
+
 void select_secret_keys(const Key_list &kl, Key_list &dst)
 {
 	Key_list::const_iterator i = kl.begin();
@@ -648,7 +648,7 @@ void select_secret_keys(const Key_list &kl, Key_list &dst)
 
 
 
-EXPORTFN
+
 void select_one(const Key_list &kl, const std::string &name, Key &key)
 {
 	Key_list sel;
@@ -667,7 +667,7 @@ void select_one(const Key_list &kl, const std::string &name, Key &key)
 	key = sel[0];
 }
 
-EXPORTFN
+
 void select_recent_one(const Key_list &kl, const std::string &name, Key &key, bool master)
 {
 	Key_list sel;
@@ -697,7 +697,7 @@ void select_recent_one(const Key_list &kl, const std::string &name, Key &key, bo
 }
 
 
-EXPORTFN
+
 void change_name(Key_list &kl, const std::vector<std::string> &selected, const char *new_name)
 {
 	Key_list::iterator i = kl.begin();
@@ -716,7 +716,7 @@ void change_name(Key_list &kl, const std::vector<std::string> &selected, const c
 	}
 }
 
-EXPORTFN
+
 void change_alias(Key_list &kl, const std::vector<std::string> &selected, const char *new_alias)
 {
 	Key_list::iterator i = kl.begin();
@@ -732,7 +732,7 @@ void change_alias(Key_list &kl, const std::vector<std::string> &selected, const 
 	}
 }
 
-EXPORTFN
+
 void append_alias(Key_list &kl, const std::vector<std::string> &selected, const char *new_alias)
 {
 	Key_list::iterator i = kl.begin();
@@ -751,7 +751,7 @@ void append_alias(Key_list &kl, const std::vector<std::string> &selected, const 
 	}
 }
 
-EXPORTFN
+
 int sign_keys(Key_list &kl, const char *signer, const std::vector<std::string> &selnames)
 {
 	Key ksig;
@@ -763,7 +763,7 @@ int sign_keys(Key_list &kl, const char *signer, const std::vector<std::string> &
 }
 
 #if 0
-EXPORTFN
+
 int sign_keys(Key_list &kl, const Key &ksig, const std::vector<std::string> &selnames)
 {
 	Key_list::iterator i = kl.begin();
@@ -793,7 +793,7 @@ int sign_keys(Key_list &kl, const Key &ksig, const std::vector<std::string> &sel
 }
 #endif
 
-EXPORTFN
+
 int sign_keys(Key_list &kl, const Key &signer, const std::vector<std::string> &selnames)
 {
 	if (!signer.secret_avail) {
@@ -827,7 +827,7 @@ int sign_keys(Key_list &kl, const Key &signer, const std::vector<std::string> &s
 }
 
 
-EXPORTFN
+
 int sign_keys(Key_list &kl, const Key &signer)
 {
 	if (!signer.secret_avail) {
@@ -859,7 +859,7 @@ int sign_keys(Key_list &kl, const Key &signer)
 
 
 
-EXPORTFN
+
 int remove_signature(Key_list &kl, const char *signer, const std::vector<std::string> &selnames)
 {
 	size_t slen = strlen(signer);
@@ -883,7 +883,7 @@ int remove_signature(Key_list &kl, const char *signer, const std::vector<std::st
 	return 0;
 }
 
-EXPORTFN
+
 const Key * find_key(const Key_list &kl, const Cu25519Pub &pub)
 {
 	Key_list::const_iterator i = kl.begin();
@@ -898,7 +898,7 @@ const Key * find_key(const Key_list &kl, const Cu25519Pub &pub)
 }
 
 
-EXPORTFN
+
 void find_key_name(const Key_list &kl, const Cu25519Pub &pub, std::string &name, Key_encoding kenc)
 {
 	if (is_zero(pub.b, 32)) {
@@ -923,7 +923,7 @@ void find_key_name(const Key_list &kl, const Cu25519Pub &pub, std::string &name,
 }
 
 
-EXPORTFN
+
 void show_sig_key (const Key_list &kl, const Key &key, Key_encoding kenc)
 {
 	std::string enc;
@@ -970,7 +970,7 @@ void show_sig_key (const Key_list &kl, const Key &key, Key_encoding kenc)
 
 
 
-EXPORTFN
+
 bool delete_keys(Key_list &kl, const Key_list &selected)
 {
 	bool changed = false;
@@ -995,7 +995,7 @@ bool delete_keys(Key_list &kl, const Key_list &selected)
 
 
 
-EXPORTFN
+
 void encode_key(const uint8_t *b, size_t n, std::string &dst, bool spaces, Key_encoding ke)
 {
 	std::vector<uint8_t> b1(n + 1);
@@ -1021,7 +1021,7 @@ void encode_key(const uint8_t *b, size_t n, std::string &dst, bool spaces, Key_e
 	}
 }
 
-EXPORTFN
+
 int decode_key(const char *s, std::vector<uint8_t> &dst, Key_encoding ke)
 {
 	const char *tmp;

@@ -46,7 +46,7 @@ void remove_arg(int *argc, char **argv, int i)
 	--*argc;
 }
 
-EXPORTFN
+
 int hasopt(int *argcp, char **argv, const char *opts, const char **val)
 {
 	for (int i = 1; i < *argcp; ++i) {
@@ -97,7 +97,7 @@ int hasopt(int *argcp, char **argv, const char *opts, const char **val)
 
 // Check if a flag was passed in the command line and remove it from the
 // arguments.
-EXPORTFN
+
 bool hasopt_long (int *argc, char **argv, const char *longopt)
 {
 	for (int i = 1; i < *argc; ++i) {
@@ -115,7 +115,7 @@ bool hasopt_long (int *argc, char **argv, const char *longopt)
 
 // Check if an option with a value was passed in the command line and remove
 // it from the arguments.
-EXPORTFN
+
 bool hasopt_long(int *argc, char **argv, const char *longopt,
                  const char **val)
 {
@@ -146,7 +146,7 @@ bool hasopt_long(int *argc, char **argv, const char *longopt,
 }
 
 
-EXPORTFN
+
 std::string describe(const std::exception &e)
 {
 	std::string res("Reason: ");
@@ -179,7 +179,7 @@ static void show_exception(std::exception &e, bool first=true)
 	}
 }
 
-EXPORTFN
+
 int run_main(int (*real_main)())
 {
 	try {
@@ -193,7 +193,7 @@ int run_main(int (*real_main)())
 	}
 }
 
-EXPORTFN
+
 int run_main(void (*real_main)())
 {
 	try {
@@ -208,7 +208,7 @@ int run_main(void (*real_main)())
 	}
 }
 
-EXPORTFN
+
 int run_main(int argc, char **argv, int (*real_main)(int,char**))
 {
 	try {
@@ -222,7 +222,7 @@ int run_main(int argc, char **argv, int (*real_main)(int,char**))
 	}
 }
 
-EXPORTFN
+
 void process_format_stream (std::ostream &os, const char **fmt,
                             int *argnum, int *saved_prec, int *wa, int *pa)
 {

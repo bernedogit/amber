@@ -1,3 +1,30 @@
+/*
+ * Copyright (c) 2015-2018, Pelayo Bernedo.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+ * IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #ifndef AMBER_PROTOBUF_HPP
 
 #include "soname.hpp"
@@ -30,9 +57,9 @@ inline int64_t u2zleb (uint64_t u)
 // 10 bytes.
 
 // Write a signed int in LEB128 with ZigZag encoding. Return the number of bytes written.
-size_t write_zleb (int64_t i, char *buf);
+EXPORTFN size_t write_zleb (int64_t i, char *buf);
 // Write an unsigned int in LEB128. Return the number of bytes written.
-size_t write_uleb (uint64_t i, char *buf);
+EXPORTFN size_t write_uleb (uint64_t i, char *buf);
 
 
 // See https://tools.ietf.org/html/draft-rfernando-protocol-buffers-00 for a
@@ -61,7 +88,7 @@ constexpr uint32_t maketag (uint32_t id, Wire_type wt)
 // in group_len format. If the file is not seekable they will be in
 // group_start/group_end format.
 
-class Protobuf_writer {
+class EXPORTFN Protobuf_writer {
 	struct Data;
 	std::unique_ptr<Data> data; // pimpl idiom.
 
@@ -95,6 +122,9 @@ public:
 	// and buffer_size == SIZE_MAX.
 	Protobuf_writer (std::ostream *os, Group gt, size_t buffer_size);
 	~Protobuf_writer();
+
+	// Use the group_len wire type instead of the length_val.
+	void use_group_len (bool flag);
 
 	void set_ostream (std::ostream *os);
 
@@ -246,7 +276,7 @@ public:
 
 
 
-class Protobuf_reader {
+class EXPORTFN Protobuf_reader {
 	struct Data;
 	std::unique_ptr<Data> data;
 

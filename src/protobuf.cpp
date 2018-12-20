@@ -1,3 +1,30 @@
+/*
+ * Copyright (c) 2015-2018, Pelayo Bernedo.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+ * IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #include "protobuf.hpp"
 #include <string.h>
 #include <type_traits>
@@ -52,6 +79,7 @@ struct Protobuf_writer::Data {
 	std::vector<char>   buffer;
 	std::streamoff      buffer_base;   // Position of the buffer in the logical stream.
 	Group               gt;
+	bool                use_group_len;
 
 	Data (std::ostream *osp) : os(osp) {}
 };
@@ -64,6 +92,7 @@ Protobuf_writer::Protobuf_writer (std::ostream *os, Group gt, size_t buffer_size
 	data->current     = 0;
 	data->buffer_base = 0;
 	data->gt          = gt;
+	data->use_group_len = true;
 
 	if (data->max_size < 2u * data->chunk_size) {
 		data->max_size = 2 * data->chunk_size;
@@ -81,7 +110,12 @@ void Protobuf_writer::set_ostream (std::ostream *os)
 	data->os = os;
 }
 
-void Protobuf_writer::flush_buffer (size_t nbytes)
+void Protobuf_writer::use_group_len (bool flag)
+{
+	data->use_group_len = flag;
+}
+
+void Protobuf_writer::flush_buffer (size_t nbytes)  
 {
 	if (data->os) {
 		data->os->write (&data->buffer[0], nbytes);
@@ -150,7 +184,14 @@ void Protobuf_writer::start_group (unsigned id)
 
 Wire_type Protobuf_writer::end_group (bool opaque)
 {
-	Wire_type res = opaque ? length_val : group_len;
+	Wire_type res;
+	if (opaque) {
+		res = length_val;
+	} else if (data->use_group_len) {
+		res = group_len;
+	} else {
+		res = length_val;
+	}
 
 	if (!data->pending.empty()) {
 		Data::Pending top = data->pending.top();
@@ -178,7 +219,7 @@ Wire_type Protobuf_writer::end_group (bool opaque)
 				std::streamoff n = data->current - top.pos - top.reserved_bytes;
 				char buf[30];
 				memset (buf, 0, sizeof buf);
-				ptrdiff_t first = write_uleb ((top.id << 3) | (opaque ? length_val : group_len), buf);
+				ptrdiff_t first = write_uleb ((top.id << 3) | res, buf);
 				if (write_uleb (n, buf + first) > max_res_space) {
 					throw_rte (_("Trying to write a group_len bigger than the reserved space (%d)."),
 					            max_res_space);
@@ -394,7 +435,7 @@ struct Req {
 struct Protobuf_reader::Data {
 	std::istream    *is;
 	const char      *pbuf, *plim;
-	std::streamoff  current, limit;
+	std::streamoff  current, limit, last_length, last_pos;
 	struct Block {
 		std::streamoff limit;
 		std::map<uint32_t, Req> reqs;
@@ -411,6 +452,7 @@ Protobuf_reader::Protobuf_reader()
 	data->pbuf = data->plim = 0;
 	data->current = 0;
 	data->limit = std::numeric_limits<decltype(data->limit)>::max();
+	data->last_length = data->last_pos = 0;
 }
 
 Protobuf_reader::Protobuf_reader (std::istream *isp)
@@ -420,6 +462,7 @@ Protobuf_reader::Protobuf_reader (std::istream *isp)
 	data->pbuf = data->plim = 0;
 	data->current = 0;
 	data->limit = std::numeric_limits<decltype(data->limit)>::max();
+	data->last_length = data->last_pos = 0;
 }
 
 
@@ -431,6 +474,7 @@ Protobuf_reader::Protobuf_reader (const char *buf, size_t n)
 	data->plim = buf + n;
 	data->current = 0;
 	data->limit = std::numeric_limits<decltype(data->limit)>::max();
+	data->last_length = data->last_pos = 0;
 }
 
 
@@ -455,30 +499,48 @@ uint64_t Protobuf_reader::read_uleb()
 {
 	uint64_t val = 0;
 	unsigned shifts = 0;
-	while (data->current < data->limit) {
-		int ch;
-		if (data->is) {
-			ch = data->is->get();
-		} else if (data->pbuf < data->plim) {
-			ch = *data->pbuf++;
-		} else {
-			ch = EOF;
+	if (data->is) {
+		while (data->current < data->limit) {
+			int ch = data->is->get();
+			if (ch == EOF) {
+				throw std::length_error ("EOF while reading a LEB128 number");
+			}
+			data->current++;
+			if (shifts >= 63) {
+				if ((shifts == 63 && (ch & 0x7E)) || (shifts > 63 && (ch & 0x7F))) {
+					throw std::out_of_range ("Reading a LEB128 that has more than 64 bits.");
+				}
+			}
+			val |= uint64_t(ch & 0x7F) << shifts;
+			shifts += 7;
+			if ((ch & 0x80) == 0) {
+				return val;
+			}
 		}
-		if (ch == EOF) {
-			throw std::length_error ("EOF while reading a LEB128 number");
-		}
-		data->current++;
-		if ((shifts == 63 && (ch & 0x7E)) || (shifts > 63 && (ch & 0x7F))) {
-			throw std::out_of_range ("Reading a LEB128 that has more than 64 bits.");
-		}
-		val |= uint64_t(ch & 0x7F) << shifts;
-		shifts += 7;
-		if ((ch & 0x80) == 0) {
-			return val;
+	} else {
+		while (data->current < data->limit) {
+			int ch;
+			if (data->pbuf < data->plim) {
+				ch = *data->pbuf++;
+			} else {
+				throw std::length_error ("EOF while reading a LEB128 number");
+			}
+			data->current++;
+			if (shifts >= 63) {
+				if ((shifts == 63 && (ch & 0x7E)) || (shifts > 63 && (ch & 0x7F))) {
+					throw std::out_of_range ("Reading a LEB128 that has more than 64 bits.");
+				}
+			}
+			val |= uint64_t(ch & 0x7F) << shifts;
+			shifts += 7;
+			if ((ch & 0x80) == 0) {
+				return val;
+			}
 		}
 	}
 	throw std::length_error (_("Attempting to read a LEB128 beyond a field limit"));
 }
+
 
 int64_t Protobuf_reader::read_zleb()
 {
@@ -623,6 +685,15 @@ void Protobuf_reader::push_scope (std::streamoff n)
 
 bool Protobuf_reader::read_tagval (uint32_t *tagwt, uint64_t *val, bool top_level)
 {
+	// Calling read_tagval() immediately after having called read_tagval()
+	// with a length_val wire type will push a new scope. With this you can
+	// have automatic scope management with length val types.
+	if (data->current == data->last_pos && data->last_length != 0) {
+		push_scope (data->last_length);
+		data->last_length = 0;
+	}
+	data->last_length = 0;
+
 	if (data->current == data->limit && !data->scopes.empty()) {
 		*tagwt = group_end;
 		check_requirements();
@@ -653,9 +724,24 @@ bool Protobuf_reader::read_tagval (uint32_t *tagwt, uint64_t *val, bool top_leve
 	}
 	*tagwt = t;
 	switch (*tagwt & 0x7) {
+	case group_end:
+		if (!data->scopes.empty()) {
+			data->scopes.pop();
+		}
+		if (!data->scopes.empty()) {
+			data->limit = data->scopes.top().limit;
+		} else {
+			data->limit = std::numeric_limits<decltype(data->limit)>::max();
+		}
+		return false;
 	case varint:
+		*val = read_uleb();
+		break;
+
 	case length_val:
 		*val = read_uleb();
+		data->last_length = *val;
+		data->last_pos = data->current;
 		break;
 
 	case group_len:
@@ -686,7 +772,9 @@ void Protobuf_reader::add_requirement (uint32_t tagwt, Requirement r)
 {
 	Req rq;
 	rq.r = r;
-	data->scopes.top().reqs[tagwt] = rq;
+	if (!data->scopes.empty()) {
+		data->scopes.top().reqs[tagwt] = rq;
+	}
 }
 
 
@@ -729,7 +817,7 @@ void Protobuf_reader::check_requirements()
 // Google protocol buffers wire types:
 
 // The general format of a protocol buffer is a sequence of Tag-Length-Value
-// triplets. Each triplet starts with a tag encoded in ULEB128 form and
+// triplets (TLV). Each triplet starts with a tag encoded in ULEB128 form and
 // where the lower 3 bits encode the wire type. The wire type carries enough
 // information to be able to skip the triplet and continue with the
 // following triplet. The following wire types have been defined by Google:
@@ -785,15 +873,17 @@ void Protobuf_reader::check_requirements()
 // debugging tools to dump the whole structure. It also simplifies the API
 // of the reader. A tool that knows nothing about the protocol schema will
 // treat a length_val type as a block of bytes, whereas a group_len type
-// will be inspected for triplets inside it.
+// will be inspected for triplets inside it. This is similar to the bit used
+// in BER for the same purpose.
 
 
 // RATIONALE FOR PROTOCOL BUFFERS.
 
 // A protocol buffer is similar to many encodings used for binary file
-// formats or protocols which serialize to a binary encoding. It is a binary
-// serialization format which is extensible, backwards and forwards
-// compatible and compact. It is not suited for non serial access.
+// formats or protocols which serialize to a binary encoding. As all
+// variants of TLV it is a binary serialization format which is extensible,
+// backwards and forwards compatible and compact. It is not suited for non
+// serial access.
 
 // For non serial access it may be better to use another format which would
 // then be memory mapped into the program. In such an application the format
@@ -809,15 +899,15 @@ void Protobuf_reader::check_requirements()
 // skip the triplet even if it does not understand this triplet type. This
 // is the key idea of the tag-length-value encoding: you can add new types
 // of triplets and parsers which do not understand the triplet type can skip
-// it. This provides the ability to extend the format by adding new triplet
-// types without breaking existing parsers.
+// them. This provides the ability to extend the format by adding new
+// triplet types without breaking existing parsers.
 
 // ASN.1 even encodes some fields using variable length integers in its BER.
 // MIDI uses a big endian variant of base 128 encoding called variable
-// length quantity. Another influential format was the IFF. The IFF has
-// influenced many other formats like RIFF, AVI and even PNG. IFF has a
-// general structure of ID-LENGTH-VALUE of triplets called chunks, which can
-// also contain embedded chunks.
+// length quantity. Another influential format was the IFF, published just
+// one year after ASN.1. The IFF has influenced many other formats like
+// RIFF, AVI and even PNG. IFF has a general structure of ID-LENGTH-VALUE
+// of triplets called chunks, which can also contain embedded chunks.
 
 // The ID and LENGTH are encoded in IFF as fixed length items. This has two
 // problems: typical implementations use 4 bytes for each of ID and LENGTH.
@@ -866,9 +956,9 @@ void Protobuf_reader::check_requirements()
 // scalar value of information. The gain in extensibility costs just a single
 // byte per field. For this overhead we gain the possibility to add and
 // rearrange each of the fields in each chunk without affecting existing
-// parsers. Note that the idea of encoding the number of bytes required for
-// the length is already found in other formats, for instance in the packet
-// format of PGP.
+// parsers. Note that the idea of encoding in the tag the number of bytes
+// required for the length is already found in other formats, for instance 
+// in the packet format of PGP.
 
 // Google intended the protocol buffers to be used for the encoding of RPC
 // There are three features that exist in PNG that are missing in protocol
@@ -919,5 +1009,18 @@ void Protobuf_reader::check_requirements()
 // triplets as defined in the application with an optional CRC at the end of
 // important chunks. If you decide to omit the CRC keep in mind that the
 // lack of a CRC may lead to processing corrupted data and producing garbage
-// by interpreting part of the file as a valid sequence of chunks.          
+// by interpreting part of the file as a valid sequence of chunks.
+
+// There are other formats that have been defined for general binary data
+// encoding. IFF has been mentioned above. ASN.1 is more complex and has
+// more options. This complexity argues against ASN.1. EBML is similar but
+// its encoding is not as compact. It is also not used much beyond Matroska.
+// Thrift is very similar to protocol buffers. It includes the distinction
+// between field id (the tag) and the field type. This distinction is
+// missing in protocol buffers but is present in ASN.1. The encoding of
+// structs in Thrift is not a TLV but just a serialization of the fields
+// finished by a zero byte. This means that if we want to skip a struct (or
+// list or map) we must read its elements. Thrift does not support fast
+// skipping of structs/lists/maps. Also in the compact form all integers are
+// sent in the varint format.
 

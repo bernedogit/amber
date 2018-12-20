@@ -89,7 +89,7 @@ inline void chacha_doubleround (uint32_t x[16])
 }
 
 
-EXPORTFN
+
 void chacha20 (uint8_t out[64], const uint32_t kn[12])
 {
 	int i;
@@ -133,7 +133,7 @@ void chacha20 (uint8_t out[64], const uint32_t kn[12])
 	leput32 (out + 56, x[14] + kn[10]);
 	leput32 (out + 60, x[15] + kn[11]);
 }
-EXPORTFN
+
 void chacha20 (uint32_t out[16], const uint32_t kn[12])
 {
 	int i;
@@ -179,7 +179,7 @@ void chacha20 (uint32_t out[16], const uint32_t kn[12])
 }
 
 
-EXPORTFN
+
 void chacha20 (uint8_t out[64], const Chakey &key, uint64_t n64, uint64_t bn)
 {
 	int i;
@@ -225,7 +225,7 @@ void chacha20 (uint8_t out[64], const Chakey &key, uint64_t n64, uint64_t bn)
 }
 
 
-EXPORTFN
+
 void chacha20 (uint8_t out[64], const uint32_t key[8], uint64_t nonce, uint64_t bn)
 {
 	int i;
@@ -288,7 +288,7 @@ static void chacha208 (uint32_t b[16])
 
 // See https://www.ietf.org/mail-archive/web/cfrg/current/msg04310.html for
 // a discussion of the extension of the HSalsa20 proof to HChaCha20.
-EXPORTFN
+
 void hchacha20 (Chakey *out, const uint8_t key[32], const uint8_t n[16])
 {
 	int i;
@@ -296,7 +296,7 @@ void hchacha20 (Chakey *out, const uint8_t key[32], const uint8_t n[16])
 	x[0] = 0x61707865;
 	x[1] = 0x3320646e;
 	x[2] = 0x79622d32;
-	x[3] = 0x6b206574; 
+	x[3] = 0x6b206574;
 
 	x[4] = leget32(key + 0);
 	x[5] = leget32(key + 4);
@@ -307,10 +307,10 @@ void hchacha20 (Chakey *out, const uint8_t key[32], const uint8_t n[16])
 	x[10] = leget32(key + 24);
 	x[11] = leget32(key + 28);
 
-	x[12] = leget32(n + 8);
-	x[13] = leget32(n + 12);
-	x[14] = leget32(n + 0);
-	x[15] = leget32(n + 4);
+	x[12] = leget32(n + 0);
+	x[13] = leget32(n + 4);
+	x[14] = leget32(n + 8);
+	x[15] = leget32(n + 12);
 
 	for (i = 0; i < 10; ++i) {
 		chacha_doubleround(x);
@@ -327,7 +327,7 @@ void hchacha20 (Chakey *out, const uint8_t key[32], const uint8_t n[16])
 }
 
 
-EXPORTFN
+
 void hchacha20 (uint32_t out[8], const uint8_t key[32], const uint8_t n[16])
 {
 	int i;
@@ -346,10 +346,10 @@ void hchacha20 (uint32_t out[8], const uint8_t key[32], const uint8_t n[16])
 	x[10] = leget32(key + 24);
 	x[11] = leget32(key + 28);
 
-	x[12] = leget32(n + 8);
-	x[13] = leget32(n + 12);
-	x[14] = leget32(n + 0);
-	x[15] = leget32(n + 4);
+	x[12] = leget32(n + 0);
+	x[13] = leget32(n + 4);
+	x[14] = leget32(n + 8);
+	x[15] = leget32(n + 12);
 
 	for (i = 0; i < 10; ++i) {
 		chacha_doubleround(x);
@@ -366,7 +366,7 @@ void hchacha20 (uint32_t out[8], const uint8_t key[32], const uint8_t n[16])
 }
 
 
-EXPORTFN
+
 void hchacha20 (Chakey *out, const Chakey &key, const uint8_t n[16])
 {
 	int i;
@@ -385,10 +385,10 @@ void hchacha20 (Chakey *out, const Chakey &key, const uint8_t n[16])
 	x[10] = key.kw[6];
 	x[11] = key.kw[7];
 
-	x[12] = leget32(n + 8);
-	x[13] = leget32(n + 12);
-	x[14] = leget32(n + 0);
-	x[15] = leget32(n + 4);
+	x[12] = leget32(n + 0);
+	x[13] = leget32(n + 4);
+	x[14] = leget32(n + 8);
+	x[15] = leget32(n + 12);
 
 	for (i = 0; i < 10; ++i) {
 		chacha_doubleround(x);
@@ -405,7 +405,7 @@ void hchacha20 (Chakey *out, const Chakey &key, const uint8_t n[16])
 }
 
 
-EXPORTFN
+
 void load (Chakey *kw, const uint8_t bytes[32])
 {
 	for (unsigned i = 0; i < 8; ++i) {
@@ -418,6 +418,7 @@ void load (Chakey *kw, const uint8_t bytes[32])
 void Chacha::reset (const Chakey &key, uint64_t nonce, uint64_t pos)
 {
 	memcpy (state, key.kw, 32);
+	// We start with block number one when xoring.
 	pos += 64;
 	uint64_t bn = pos >> 6;     // pos/64
 	state[8] = bn & 0xFFFFFFFF;
@@ -525,19 +526,19 @@ void Chacha::seek (uint64_t pos)
 
 
 
-// Encrypt the plaintext with XChaCha20. Xor_stream starts with block number
-// 0 and continues until the input has been completely processed. The
-// authencation keys are used to generate a block with index 0. This block
-// is then used as the key for Poly1305. This setup allows us to use the
-// same key for encryption (kw) and for authentication (ka). The encryption
-// will use the blocks starting with 1 until the input is processed. The
+// Encrypt the plaintext with ChaCha20. Xor_stream starts with block number 0
+// and continues until the input has been completely processed. The
+// authencation keys are used to generate a block with index 0. This block is
+// then used as the key for Poly1305. This setup allows us to use the same
+// key for encryption (kw) and for authentication (ka). The encryption will
+// use the blocks starting with 1 until the input is processed. The
 // authentication will use the block with index 0. We use the same scheme as
 // RFC 7539 for the padding.
-EXPORTFN
-void encrypt_multi (uint8_t *cipher, const uint8_t *m, size_t mlen, 
-					const uint8_t *ad, size_t alen, const Chakey &kw, 
-					const Chakey *ka, size_t nka, uint64_t nonce64, 
-					uint32_t ietf_sender)
+
+void encrypt_multi (uint8_t *cipher, const uint8_t *m, size_t mlen,
+                    const uint8_t *ad, size_t alen, const Chakey &kw,
+                    const Chakey *ka, size_t nka, uint64_t nonce64,
+                    uint32_t ietf_sender)
 {
 	uint8_t stream[64];
 	Janitor jan(stream, sizeof stream);
@@ -568,7 +569,7 @@ void encrypt_multi (uint8_t *cipher, const uint8_t *m, size_t mlen,
 	}
 }
 
-EXPORTFN
+
 int decrypt_multi (uint8_t *m, const uint8_t *cipher, size_t clen,
                    const uint8_t *ad, size_t alen, const Chakey &kw,
                    const Chakey &ka, size_t nka, size_t ika,
@@ -770,18 +771,18 @@ static void scrypt_romix2(unsigned char *b, int r, int N)
 	}
 }
 
-EXPORTFN
+
 void scrypt_blake2b (uint8_t *dk, size_t dklen,
                      const char *pwd, size_t plen,
                      const uint8_t *salt, size_t slen,
                      int shifts, int r, int p)
 {
-	int i;
-	int N = 1 << shifts;
-	std::vector<uint8_t> b(128*r*p);
-	Janitor jan(&b[0], b.size());
-
 	try {
+		int i;
+		int N = 1 << shifts;
+		std::vector<uint8_t> b(128*r*p);
+		Janitor jan(&b[0], b.size());
+	
 		pbkdf2_blake2b (&b[0], 128*r*p, pwd, plen, salt, slen, 1);
 
 		for (i = 0; i < p; ++i) {
