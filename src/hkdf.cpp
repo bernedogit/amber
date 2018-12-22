@@ -32,10 +32,12 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#include <vector>
 #include "blake2.hpp"
 
 
 namespace amber {  inline namespace AMBER_SONAME {
+
 
 void mix_hash (uint8_t h[32], const uint8_t *data, size_t n)
 {
@@ -62,7 +64,6 @@ void mix_hash_init (uint8_t ck[32], uint8_t h[32], const char *protocol,
 	memcpy (ck, h, 32);
 	mix_hash (h, pro, plen);
 }
-
 
 class Hmac2s {
 	blake2s_ctx b;
@@ -127,6 +128,8 @@ void mix_key (uint8_t ck[32], const uint8_t *ikm, size_t n)
 	hmac.update (&b, 1);
 	hmac.final (ck);
 }
+
+
 
 }}
 #endif

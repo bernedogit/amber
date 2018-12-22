@@ -165,6 +165,7 @@ void edwards_to_ey (uint8_t res[32], const Edwards &p)
 	res[31] |= sign << 7;
 }
 
+// Convert simultaneously to compressed Montgomery and Edwards.
 /*
 	u = (Z + Y)/(Z - Y)
 	x = X/Z

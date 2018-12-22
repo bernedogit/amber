@@ -777,49 +777,13 @@ static void chacha208 (uint32_t b[16])
 }
 
 
-void hchacha20 (Chakey *out, const uint8_t key[32], const uint8_t n[16])
-{
-	int i;
-	uint32_t x[16];
-	x[0] = 0x61707865;
-	x[1] = 0x3320646e;
-	x[2] = 0x79622d32;
-	x[3] = 0x6b206574;
-
-	x[4] = leget32(key + 0);
-	x[5] = leget32(key + 4);
-	x[6] = leget32(key + 8);
-	x[7] = leget32(key + 12);
-	x[8] = leget32(key + 16);
-	x[9] = leget32(key + 20);
-	x[10] = leget32(key + 24);
-	x[11] = leget32(key + 28);
-
-	x[12] = leget32(n + 8);
-	x[13] = leget32(n + 12);
-	x[14] = leget32(n + 0);
-	x[15] = leget32(n + 4);
-
-	for (i = 0; i < 10; ++i) {
-		chacha_doubleround(x);
-	}
-
-	out->kw[0] = x[0];
-	out->kw[1] = x[1];
-	out->kw[2] = x[2];
-	out->kw[3] = x[3];
-	out->kw[4] = x[12];
-	out->kw[5] = x[13];
-	out->kw[6] = x[14];
-	out->kw[7] = x[15];
-}
 static void xor_stream (uint8_t *dst, const uint8_t *src, size_t len,
-                        const Chakey &key, uint64_t n64, uint32_t ietf_sender=0)
+                        const Chakey &key, uint64_t n64)
 {
 	uint8_t stream[64];
 	// We use block zero to generate authentication keys for Poly1305. We xor
 	// starting with block one.
-	uint64_t bn = 1 | (uint64_t(ietf_sender) << 32);
+	uint64_t bn = 1;
 	while (len >= 64) {
 		chacha20 (stream, key, n64, bn++);
 		for (unsigned i = 0; i < 64; ++i) {
@@ -854,12 +818,11 @@ inline void leput64 (unsigned char *x, uint64_t u)
 
 void encrypt_multi (uint8_t *cipher, const uint8_t *m, size_t mlen,
                     const uint8_t *ad, size_t alen, const Chakey &kw,
-                    const Chakey *ka, size_t nka, uint64_t nonce64,
-                    uint32_t ietf_sender)
+                    const Chakey *ka, size_t nka, uint64_t nonce64)
 {
 	uint8_t stream[64];
 
-	xor_stream (cipher, m, mlen, kw, nonce64, ietf_sender);
+	xor_stream (cipher, m, mlen, kw, nonce64);
 
 	static const uint8_t pad[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	size_t npad1 = alen % 16;
@@ -877,7 +840,7 @@ void encrypt_multi (uint8_t *cipher, const uint8_t *m, size_t mlen,
 	poly1305_context poc;
 	// For each authentication key, compute the Poly1305 tag and append it to
 	// the resulting ciphertext.
-	uint64_t block_number = uint64_t(ietf_sender) << 32;
+	uint64_t block_number = 0;
 	// Create the poly key using the last blocks. We use a different block
 	// for each key because keys could have been repeated and then the tags
 	// would be identical. The first block is zero to be compatible with
@@ -897,17 +860,17 @@ void encrypt_multi (uint8_t *cipher, const uint8_t *m, size_t mlen,
 	}
 }
 
-int decrypt_multi (uint8_t *m, const uint8_t *cipher, size_t clen, 
-				   const uint8_t *ad, size_t alen, const Chakey &kw, 
-				   const Chakey &ka, size_t nka, size_t ika, 
-				   uint64_t nonce64, uint32_t ietf_sender)
+int decrypt_multi (uint8_t *m, const uint8_t *cipher, size_t clen,
+                   const uint8_t *ad, size_t alen, const Chakey &kw,
+                   const Chakey &ka, size_t nka, size_t ika,
+                   uint64_t nonce64)
 {
 	if (clen < nka*16) return -1;
 	size_t mlen = clen - nka*16;
 
 	uint8_t stream[64];
 
-	uint64_t block_number = uint64_t (ietf_sender) << 32;
+	uint64_t block_number = 0;
 	block_number -= ika;
 	chacha20 (stream, ka, nonce64, block_number);
 
@@ -939,7 +902,7 @@ int decrypt_multi (uint8_t *m, const uint8_t *cipher, size_t clen,
 	poly1305_finish (&poc, tag);
 
 	if (crypto_neq(tag, cipher + mlen + ika*16, 16)) return -1;
-	xor_stream (m, cipher, mlen, kw, nonce64, ietf_sender);
+	xor_stream (m, cipher, mlen, kw, nonce64);
 	return 0;
 }
 
@@ -1213,15 +1176,15 @@ void randombytes_buf (void *buf, size_t n)
 	}
 }
 
+typedef Blake2s Blake;
 
 // Noise protocol
 void mix_hash (uint8_t h[32], const uint8_t *data, size_t n)
 {
-	blake2s_ctx b;
-	blake2s_init (&b, 32, NULL, 0);
-	blake2s_update (&b, h, 32);
-	blake2s_update (&b, data, n);
-	blake2s_final (&b, h);
+	Blake b (32, NULL, 0);
+	b.update (h, 32);
+	b.update (data, n);
+	b.final (h);
 }
 
 void mix_hash_init (uint8_t ck[32], uint8_t h[32], const char *protocol,
@@ -1232,66 +1195,37 @@ void mix_hash_init (uint8_t ck[32], uint8_t h[32], const char *protocol,
 		memcpy (h, protocol, n);
 		memset (h + n, 0, 32 - n);
 	} else {
-		blake2s_ctx b;
-		blake2s_init (&b, 32, NULL, 0);
-		blake2s_update (&b, protocol, n);
-		blake2s_final (&b, h);
+		Blake b (32, NULL, 0);
+		b.update (protocol, n);
+		b.final (h);
 	}
 	memcpy (ck, h, 32);
 	mix_hash (h, pro, plen);
 }
 
 
-void Hmac::reset (const uint8_t k[32])
-{
-	memcpy (key, k, 32);
-	memset (key + 32, 0, 32);
-	for (size_t i = 0; i < sizeof key; ++i) {
-		key[i] ^= 0x36;
-	}
-	blake2s_init (&b, 32, NULL, 0);
-	blake2s_update (&b, key, sizeof key);
-}
-void Hmac::final (uint8_t h[32])
-{
-	for (size_t i = 0; i < sizeof key; ++i) {
-		key[i] ^= 0x36;
-		key[i] ^= 0x5c;
-	}
-	blake2s_final (&b, h);
-	blake2s_init (&b, 32, NULL, 0);
-	blake2s_update (&b, key, sizeof key);
-	blake2s_update (&b, h, 32);
-	blake2s_final (&b, h);
-}
-
 void mix_key (uint8_t ck[32], uint8_t k[32], const uint8_t *ikm, size_t n)
 {
-	Hmac hmac (ck);
-	hmac.update (ikm, n);
-	uint8_t tmp[32];
-	hmac.final (tmp);
-	hmac.reset (tmp);
-	uint8_t b = 1;
-	hmac.update (&b, 1);
-	hmac.final (ck);
-	hmac.reset (tmp);
-	hmac.update (ck, 32);
-	b = 2;
-	hmac.update (&b, 1);
-	hmac.final (k);
+	Hkdf<Blake> hk (ck, 32);
+	hk.add_input (ikm, n);
+	hk.switch_to_output();
+	const uint8_t *bp = hk.output_block();
+	memcpy (ck, bp, 32);
+	if (hk.hashlen < 64) {
+		bp = hk.output_block();
+	} else {
+		bp += 32;
+	}
+	memcpy (k, bp, 32);
 }
 
 void mix_key (uint8_t ck[32], const uint8_t *ikm, size_t n)
 {
-	Hmac hmac (ck);
-	hmac.update (ikm, n);
-	uint8_t tmp[32];
-	hmac.final (tmp);
-	hmac.reset (tmp);
-	uint8_t b = 1;
-	hmac.update (&b, 1);
-	hmac.final (ck);
+	Hkdf<Blake> hk (ck, 32);
+	hk.add_input (ikm, n);
+	hk.switch_to_output();
+	const uint8_t *bp = hk.output_block();
+	memcpy (ck, bp, 32);
 }
 
 

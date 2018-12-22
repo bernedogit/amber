@@ -30,6 +30,9 @@
 
 #include "soname.hpp"
 #include <stdexcept>
+#include <vector>
+#include <string.h>
+#include <assert.h>
 
 
 namespace twamber { inline namespace AMBER_SONAME {
@@ -72,6 +75,17 @@ inline void blake2b_update (blake2b_ctx *ctx, uint64_t u)
 	blake2b_update (ctx, x, 8);
 }
 
+class EXPORTFN Blake2b {
+	blake2b_ctx ctx;
+public:
+	enum { blocklen = 128, hashlen = 64 };
+	Blake2b (size_t outlen=hashlen, const void *key=0, size_t keylen=0) { blake2b_init (&ctx, outlen, key, keylen); }
+	void reset (size_t outlen=hashlen, const void *key=0, size_t keylen=0) { blake2b_init (&ctx, outlen, key, keylen); }
+	void update (const void *in, size_t inlen) { blake2b_update (&ctx, in, inlen); }
+	void final (void *out) { blake2b_final (&ctx, out); }
+};
+
+
 
 typedef struct {
 	uint8_t b[64];                      // input buffer
@@ -89,6 +103,15 @@ void blake2s_update (blake2s_ctx *ctx, const void *in, size_t inlen);
 
 EXPORTFN void blake2s_final (blake2s_ctx *ctx, void *out);
 
+class EXPORTFN Blake2s {
+	blake2s_ctx ctx;
+public:
+	enum { blocklen = 64, hashlen = 32 };
+	Blake2s (size_t outlen=hashlen, const void *key=0, size_t keylen=0) { blake2s_init (&ctx, outlen, key, keylen); }
+	void reset (size_t outlen=hashlen, const void *key=0, size_t keylen=0) { blake2s_init (&ctx, outlen, key, keylen); }
+	void update (const void *in, size_t inlen) { blake2s_update (&ctx, in, inlen); }
+	void final (void *out) { blake2s_final (&ctx, out); }
+};
 
 
 // Poly1305 donna implementation.
@@ -132,21 +155,17 @@ EXPORTFN void load (Chakey *kw, const uint8_t bytes[32]);
 EXPORTFN
 void chacha20 (uint8_t out[64], const Chakey &key, uint64_t n64, uint64_t bn);
 
-EXPORTFN
-void hchacha20 (Chakey *out, const uint8_t key[32], const uint8_t n[16]);
 
 // Encrypt and decrypt using ChaChaPoly with multiple tags.
 EXPORTFN
 void encrypt_multi (uint8_t *cipher, const uint8_t *m, size_t mlen,
                     const uint8_t *ad, size_t alen, const Chakey &kw,
-                    const Chakey *ka, size_t nka, uint64_t nonce64,
-                    uint32_t ietf_sender=0);
+                    const Chakey *ka, size_t nka, uint64_t nonce64);
 
 EXPORTFN
 int decrypt_multi (uint8_t *m, const uint8_t *cipher, size_t clen,
                    const uint8_t *ad, size_t alen, const Chakey &kw,
-                   const Chakey &ka, size_t nka, size_t ika, uint64_t nonce64,
-                   uint32_t ietf_sender=0);
+                   const Chakey &ka, size_t nka, size_t ika, uint64_t nonce64);
 
 EXPORTFN
 void scrypt_blake2b (uint8_t *dk, size_t dklen,
@@ -200,16 +219,88 @@ void mix_hash_init (uint8_t ck[32], uint8_t h[32], const char *protocol,
 EXPORTFN
 void mix_hash (uint8_t h[32], const uint8_t *data, size_t n);
 
+template <class H>
 class EXPORTFN Hmac {
-	blake2s_ctx b;
-	uint8_t key[64];
+	H blake;
+	uint8_t key[H::blocklen];
 public:
+	enum { hashlen = H::hashlen };
 	Hmac() {}
-	Hmac(const uint8_t k[32]) { reset (k); }
-	void reset (const uint8_t k[32]);
-	void update (const uint8_t *data, size_t n) { blake2s_update (&b, data, n); }
-	void final (uint8_t h[32]);
+	Hmac(const uint8_t *k, size_t n) { reset (k, n); }
+	void reset (const uint8_t *key, size_t n);
+	void update (const uint8_t *data, size_t n) { blake.update (data, n); }
+	void final (uint8_t *mac);
 };
+
+template <class H>
+void Hmac<H>::reset (const uint8_t *k, size_t n)
+{
+	if (n > H::blocklen) {
+		H tmph;
+		tmph.update (k, n);
+		tmph.final (key);
+		memset (key + H::hashlen, 0, H::blocklen - H::hashlen);
+	} else {
+		memcpy (key, k, n);
+		memset (key + n, 0, sizeof key - n);
+	}
+	for (size_t i = 0; i < sizeof key; ++i) {
+		key[i] ^= 0x36;
+	}
+	blake.reset (H::hashlen, NULL, 0);
+	blake.update (key, sizeof key);
+}
+template <class H>
+void Hmac<H>::final (uint8_t *mac)
+{
+	for (size_t i = 0; i < sizeof key; ++i) {
+		key[i] ^= 0x36;
+		key[i] ^= 0x5c;
+	}
+	blake.final (mac);
+	blake.reset (H::hashlen, NULL, 0);
+	blake.update (key, sizeof key);
+	blake.update (mac, H::hashlen);
+	blake.final (mac);
+}
+
+template <class BLK>
+class EXPORTFN Hkdf {
+	Hmac<BLK> hmac;
+	uint8_t prk[BLK::hashlen], last[BLK::hashlen];
+	int last_size;
+	unsigned char block_number;
+	std::vector<uint8_t> infov;
+public:
+	enum { hashlen = BLK::hashlen };
+	Hkdf (const uint8_t *salt, size_t nsalt) : hmac (salt, nsalt) {}
+	void reset (const uint8_t *salt, size_t nsalt) { hmac.reset (salt, nsalt); }
+	void add_input (const uint8_t *ikm, size_t n) { hmac.update (ikm, n); }
+	void switch_to_output (const uint8_t *info=0, size_t ninfo=0);
+	const uint8_t * output_block();
+};
+template <class BLK>
+void Hkdf<BLK>::switch_to_output (const uint8_t *info, size_t ninfo)
+{
+	hmac.final (prk);
+	last_size = 0;
+	block_number = 1;
+	infov.resize (ninfo);
+	memcpy (&infov[0], info, ninfo);
+}
+template <class BLK>
+const uint8_t * Hkdf<BLK>::output_block()
+{
+	hmac.reset (prk, hmac.hashlen);
+	hmac.update (last, last_size);
+	hmac.update (&infov[0], infov.size());
+	hmac.update (&block_number, 1);
+	hmac.final (last);
+	last_size = hashlen;
+	++block_number;
+	return last;
+}
+
 
 EXPORTFN
 void mix_key (uint8_t ck[32], uint8_t k[32], const uint8_t *ikm, size_t n);

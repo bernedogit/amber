@@ -248,8 +248,8 @@ inline void append (std::vector<uint8_t> &out, const uint8_t *data, size_t ndata
 
 
 void Handshake::initialize (const char *protolet, const Pattern *pattern,
-                            size_t npat, const uint8_t *prologue, 
-							size_t plen, bool elligated, bool fallback)
+                            size_t npat, const uint8_t *prologue,
+                            size_t plen, bool elligated, bool fallback)
 {
 	char protocol[100];
 	snprintf (protocol, sizeof protocol, "Noise_%s_25519_ChaChaPoly_BLAKE2s", protolet);
@@ -583,6 +583,9 @@ struct Predef_val {
 	size_t npat;
 };
 
+// Patterns named depending on whether the static key of the participant is
+// not known (N), known in advance (K) or transmitted (X).
+
 static Handshake::Pattern pat_n[] = {
 	Handshake::e, Handshake::es, Handshake::payload,
 	Handshake::finish
@@ -689,7 +692,7 @@ static Predef_val pval[] = {
 	{ Handshake::IN, "IN", pat_in, sizeof(pat_in)/sizeof(pat_in[0]) },
 	{ Handshake::IK, "IK", pat_ik, sizeof(pat_ik)/sizeof(pat_ik[0]) },
 	{ Handshake::IX, "IX", pat_ix, sizeof(pat_ix)/sizeof(pat_ix[0]) },
-	{ Handshake::XF, "XX", pat_xf, sizeof(pat_xf)/sizeof(pat_xf[0]) },
+	{ Handshake::XF, "XF", pat_xf, sizeof(pat_xf)/sizeof(pat_xf[0]) },
 };
 
 void Handshake::initialize (Predef pat, const uint8_t *prologue, size_t plen,
