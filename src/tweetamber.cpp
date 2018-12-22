@@ -776,6 +776,46 @@ static void chacha208 (uint32_t b[16])
 	}
 }
 
+// See https://www.ietf.org/mail-archive/web/cfrg/current/msg04310.html for
+// a discussion of the extension of the HSalsa20 proof to HChaCha20.
+
+void hchacha20 (Chakey *out, const uint8_t key[32], const uint8_t n[16])
+{
+	int i;
+	uint32_t x[16];
+	x[0] = 0x61707865;
+	x[1] = 0x3320646e;
+	x[2] = 0x79622d32;
+	x[3] = 0x6b206574;
+
+	x[4] = leget32(key + 0);
+	x[5] = leget32(key + 4);
+	x[6] = leget32(key + 8);
+	x[7] = leget32(key + 12);
+	x[8] = leget32(key + 16);
+	x[9] = leget32(key + 20);
+	x[10] = leget32(key + 24);
+	x[11] = leget32(key + 28);
+
+	x[12] = leget32(n + 0);
+	x[13] = leget32(n + 4);
+	x[14] = leget32(n + 8);
+	x[15] = leget32(n + 12);
+
+	for (i = 0; i < 10; ++i) {
+		chacha_doubleround(x);
+	}
+
+	out->kw[0] = x[0];
+	out->kw[1] = x[1];
+	out->kw[2] = x[2];
+	out->kw[3] = x[3];
+	out->kw[4] = x[12];
+	out->kw[5] = x[13];
+	out->kw[6] = x[14];
+	out->kw[7] = x[15];
+}
+
 
 static void xor_stream (uint8_t *dst, const uint8_t *src, size_t len,
                         const Chakey &key, uint64_t n64)

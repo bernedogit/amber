@@ -151,6 +151,10 @@ struct Chakey {
 // Convert from bytes to words.
 EXPORTFN void load (Chakey *kw, const uint8_t bytes[32]);
 
+// HChaCha20. Take a key and a 16 byte nonce and generate a new key.
+EXPORTFN
+void hchacha20 (Chakey *out, const uint8_t key[32], const uint8_t n[16]);
+
 // Generate a chunk based on the nonce and the block number.
 EXPORTFN
 void chacha20 (uint8_t out[64], const Chakey &key, uint64_t n64, uint64_t bn);
