@@ -163,7 +163,8 @@ public:
 // exception.
 class EXPORTFN Handshake : public Symmetric {
 	Cu25519Sec e_sec, s_sec;
-	Cu25519Pub e_pub, s_pub, re_pub, rs_pub;
+	Cu25519Ris s_pub, rs_pub;
+	Cu25519Mon e_pub, re_pub;
 	uint8_t pskv[32];
 	bool s_set, re_set, rs_set;
 	bool s_known, psk_set;
@@ -214,10 +215,10 @@ public:
 	void set_s (const Cu25519Pair &pair, bool known);
 
 	// If you know the static key of the correspondent use this.
-	void set_known_rs (const Cu25519Pub &xp);
+	void set_known_rs (const Cu25519Ris &xp);
 
 	// Set the remote ephemeral key. Required for fallbacks.
-	void set_known_re (const Cu25519Pub &xp);
+	void set_known_re (const Cu25519Mon &xp);
 
 	// Used for testing. Set the secret part of our ephemeral key. Normally
 	// this will be generated using a random string.
@@ -236,8 +237,8 @@ public:
 	// messsage, at most at the third message.
 	bool finished() const { return pat[patidx] == finish; }
 
-	const Cu25519Pub * get_rs() const { return rs_set ? &rs_pub : NULL; }
-	const Cu25519Pub * get_re() const { return re_set ? &re_pub : NULL; }
+	const Cu25519Ris * get_rs() const { return rs_set ? &rs_pub : NULL; }
+	const Cu25519Mon * get_re() const { return re_set ? &re_pub : NULL; }
 
 	// Create the cipher states for sending and receiving.
 	void split (Cipher *tx, Cipher *rx);

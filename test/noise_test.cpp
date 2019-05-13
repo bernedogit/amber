@@ -168,7 +168,7 @@ void test_first (const First_case &fc)
 	read_all (fc.ciphertext, ct);
 
 	Cu25519Pair ie, is;
-	Cu25519Pub rsp;
+	Cu25519Mon rsp;
 
 	assert (ieph.size() == 32);
 	memcpy (ie.xs.b, &ieph[0], 32);

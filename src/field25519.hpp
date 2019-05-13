@@ -2,7 +2,7 @@
 #define AMBER_FIELD25519_HPP
 
 /*
- * Copyright (c) 2017, Pelayo Bernedo.
+ * Copyright (c) 2017-2019, Pelayo Bernedo.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,7 +64,7 @@ namespace amber {  inline namespace AMBER_SONAME {
 // AMBER_LIMB_BITS will be set to 128 if using GCC and to 64 otherwise.
 
 
-//#define AMBER_LIMB_BITS 64
+//#define AMBER_LIMB_BITS 32
 
 #ifndef AMBER_LIMB_BITS
 	#if SIZE_MAX < 0xFFFFFFFFFFFFFFFF
@@ -81,7 +81,6 @@ namespace amber {  inline namespace AMBER_SONAME {
 #if AMBER_LIMB_BITS == 128
 	typedef unsigned __int128 uint128_t;
 #endif
-
 
 
 #if AMBER_LIMB_BITS == 32
@@ -186,7 +185,8 @@ struct Edwards {
 };
 
 
-// Compute 1/z by raising z to p-2 = 2²⁵⁵ - 21.
+// Compute 1/z by raising z to p-2 = 2²⁵⁵ - 21. It works for all inputs
+// except for zero. When z == 0 then it sets res = 0.
 EXPORTFN
 void invert (Fe &res, const Fe &z);
 
@@ -219,21 +219,31 @@ int invsqrt (Fe &res, const Fe &x);
 EXPORTFN
 int sqrt (Fe &res, const Fe &x);
 
+// If u/v is a square *res = sqrt(u/v) and return 0. If u/v is not a square
+// *res = sqrt(iu/v) and return 1. Constant time.
+int sqrt_ratio_m1 (Fe &res, const Fe &u, const Fe &v);
+
+
+
+// Return 1 or 0. Constant time.
+EXPORTFN
+uint8_t not_zero (const uint8_t *b, size_t n);
 
 
 // The Montgomery ladder ignores bit 255 and works with bits 0-254 of the
 // scalar. X25519 requires that bit 254 is always set and bits 0-2 are
 // cleared. These routines work with anything. In X25519 bits 0-2 are cleared
-// so that the scalar is a multiple of the cofactor. This is required. Bit
-// 254 is set so that other variable time implementations become effectively
-// constant time. It also ensures that the scalar is not a multiple of the
-// order. It is not required with this implementation.
+// so that the scalar is a multiple of the cofactor and bit 254 is set so
+// that other variable time implementations become effectively constant
+// time. The masking is not required with this implementation. This
+// implementation works with any scalar using all 256 bits.
 
 // Normal X only scalar multiplication.
 EXPORTFN
 void montgomery_ladder (uint8_t res[32], const uint8_t pointx[32], const uint8_t scalar[32]);
 EXPORTFN
 void montgomery_ladder (Fe &res, const Fe &xp, const uint8_t scalar[32]);
+void montgomery_ladder (Fe &u, Fe &z, const Fe &xp, const uint8_t scalar[32], int startbit=255);
 
 
 // Montgomery ladder with recovery of Y coordinate. bu and bv are the affine
@@ -280,7 +290,7 @@ EXPORTFN
 void mont_to_edwards (Edwards &e, const Fe &u, const Fe &v, const Fe &z);
 
 
-// Return 1 if v > lim. Return 0 otherwise.
+// Return 1 if v > lim. Return 0 otherwise. Constant time.
 EXPORTFN
 uint32_t gt_than (const uint8_t v[32], const uint8_t lim[32]);
 
@@ -304,6 +314,11 @@ void elligator2_r2u (Fe &u, const Fe &r);
 // been masked.
 EXPORTFN
 void increment (uint8_t scalar[32], int delta=1);
+
+
+
+
+
 
 // Inline implementations.
 
@@ -557,6 +572,17 @@ inline void cswap (Fe32 &a, Fe32 &b, uint32_t flag)
 	c = (a.v[9] ^ b.v[9]) & flag;  a.v[9] ^= c;  b.v[9] ^= c;
 }
 
+inline void select (Fe32 &res, const Fe32 &a, const Fe32 &b, uint32_t first)
+{
+	uint32_t discard = first - 1;   // All zero if first == 1, all 1 if first == 0;
+	uint32_t keep = ~discard;       // All one if first == 1, all 0 if first == 0
+
+	for (int i = 0; i < fecount; ++i) {
+		res.v[i] = (a.v[i] & keep) | (b.v[i] & discard);
+	}
+}
+
+
 inline void convert (Fe32 &res, const Fe64 &f)
 {
 	res.v[0] = f.v[0] & mask26;
@@ -639,6 +665,17 @@ inline void cswap (Fe64 &a, Fe64 &b, uint64_t flag)
 	c = (a.v[3] ^ b.v[3]) & flag;  a.v[3] ^= c;  b.v[3] ^= c;
 	c = (a.v[4] ^ b.v[4]) & flag;  a.v[4] ^= c;  b.v[4] ^= c;
 }
+
+inline void select (Fe64 &res, const Fe64 &a, const Fe64 &b, uint64_t first)
+{
+	uint64_t discard = first - 1;   // All zero if first == 1, all 1 if first == 0;
+	uint64_t keep = ~discard;       // All one if first == 1, all 0 if first == 0
+
+	for (int i = 0; i < fecount; ++i) {
+		res.v[i] = (a.v[i] & keep) | (b.v[i] & discard);
+	}
+}
+
 
 
 #if AMBER_LIMB_BITS == 128

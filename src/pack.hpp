@@ -49,8 +49,8 @@ EXPORTFN void plain_pack_list (const char *iname);
 
 // Extract the given files.
 EXPORTFN
-void plain_unpack (const char *packed, int nf, char **files, bool verbose, 
-				   bool console);
+void plain_unpack (const char *packed, int nf, char **files, bool verbose,
+                   bool console);
 
 EXPORTFN
 void plain_unpack_all (const char *packed, bool verbose, bool console);
@@ -103,7 +103,7 @@ void pub_pack(const char *oname, int nf, char **files, const Key &sender,
 // Pass the decryption key in rx. It will list the contents of the archive
 // and put in sender the public key of the sender.
 EXPORTFN
-void pub_pack_list (const char *iname, const Key &rx, Cu25519Pub *sender, int *nrx);
+void pub_pack_list (const char *iname, const Key &rx, Cu25519Ris *sender, int *nrx);
 
 // Unpack the files whose names are stored in files[0..nf[. Pass the
 // decryption key in rx. The public key of the sender will be stored in
@@ -112,10 +112,10 @@ void pub_pack_list (const char *iname, const Key &rx, Cu25519Pub *sender, int *n
 // console without unpacking them.
 EXPORTFN
 void pub_unpack (const char *packed, int nf, char **files, const Key &rx,
-                 Cu25519Pub *sender, int *nrx, bool verbose, bool console);
+                 Cu25519Ris *sender, int *nrx, bool verbose, bool console);
 EXPORTFN
 void pub_unpack_all (const char *packed, const Key &rx,
-                 Cu25519Pub *sender, int *nrx, bool verbose, bool console);
+                 Cu25519Ris *sender, int *nrx, bool verbose, bool console);
 
 
 EXPORTFN

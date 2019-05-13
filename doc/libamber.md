@@ -1,26 +1,26 @@
 Libamber
 ========
 
-This file deals with the use of the *libamber* library. You may package it as
+This file deals with the use of the *libamber* library. You may package it as 
 a separate library or you may include the files within your source tree.
 
-If you need padlock based encryption then you need to be familiar with the
-concept of public and private keys. Refer to the file **amber.md** for
-explanations of these concepts. The file *amber.md* refers to public keys as
-*padlocks* and private keys as *keys*. This is intended to make it easier for
-non experts to understand the concepts using an analogy with physical
-security.
+If you need padlock based encryption then you need to be familiar with the 
+concept of public and private keys. Refer to the file **amber.md** for 
+explanations of these concepts. The file *amber.md* refers to public keys as 
+*padlocks* and private keys as *keys*. This is intended to make it easier for 
+non experts to understand the concepts using an analogy with physical 
+security. 
 
-There are several entry points to this library. If you just want a very
-simple API to encrypt and decrypt files then use the high level API defined
-in *combined.hpp*. There is very little that can go wrong using this level.
+There are several entry points to this library. If you just want a very 
+simple API to encrypt and decrypt files then use the high level API defined 
+in *combined.hpp*. There is very little that can go wrong using this level. 
 
-At the medium level we have the *amber::ofstream* and *amber::ifstream*
-encrypting and decrypting classes. They look and operate like the std
-counterparts but perform encryption and decryption under the hood. The higher
-level API is just a wrapper around these classes. The archiving functionality
-built into the library just uses these classes and knows nothing about
-encryption.
+At the medium level we have the *amber::ofstream* and *amber::ifstream* 
+encrypting and decrypting classes. They look and operate like the std 
+counterparts but perform encryption and decryption under the hood. The higher 
+level API is just a wrapper around these classes. The archiving functionality 
+built into the library just uses these classes and knows nothing about 
+encryption. 
 
 The lowest level provides functions that perform shared secret computation,
 packet encryption, authentication, password hashing, etc. They allow you to
@@ -99,47 +99,54 @@ group25519.hpp
 The file *group25519.hpp* declares the functions that deal with public key
 cryptography.
 
-It provides three types that each contain 32 bytes. They are different types
-to allow the compiler to catch errors if you pass the wrong type. The private
-key is represented by the type Cu25519Sec. The corresponding public key is
-represented by the type Cu25519Pub. The Elligator2 representative of the
-public key is represented by the type Cu25519Rep. Each of these types has a
-single member: `uint8_t b[32];` You can access the individual bytes by using
-something like `key.b[i]`.
+It provides four types that each contain 32 bytes. They are different types 
+to allow the compiler to catch errors if you pass the wrong type. Each of 
+these types has a single member: `uint8_t b[32];` You can access the 
+individual bytes by using something like `key.b[i]`. The private key, which 
+is the secret scalar, is represented by the type Cu25519Sec. The type 
+Cu25519Mon contains a Montgomery u coordinate. This is the same as what is 
+used in X25519 as public key. The type Cu25519Ell contains an Elligator2 
+representative. It can be converted to a Cu25519Mon value. Finally the type 
+Cu25519Ris contains a Ristretto encoding of a point.
 
-To generate a long term key you use `cu25519_generate (Cu25519Sec *xs,
-Cu25519Pub *xp)`. The first argument is the input secret key and the second
-argument is the output public key. You must fill `xs.b` with 32 random bytes
-before calling this function. The function will then adjust the value of
-`xs` and will compute the corresponding public key `xp`.
+To generate a long term key you use `cu25519_generate (Cu25519Sec *xs, 
+Cu25519Ris *xp)`. The first argument is the input secret key and the second 
+argument is the output public key. You must fill `xs.b` with 32 random bytes 
+before calling this function. The function will then adjust the value of `xs` 
+and will compute the corresponding public key `xp`.
 
-To generate an ephemeral key that will be used with Elligator2 use the
-function `cu225191_elligator2_gen (Cu25519Sec *xs, Cu25519Pub *xp, Cu25519Rep
-*xr)`. The first argument is the input secret key. You should fill it with 32
-random bytes before calling this function. The function will adjust this key.
-The second argument is the public key corresponding to this secret key. The
-third argument is the Elligator2 representative corresponding to this secret
-key. The function adjusts `xs` and computes both `xp` and `xr`.
+To generate an ephemeral key that will be used with Elligator2 use the 
+function `cu225191_elligator2_gen (Cu25519Sec *xs, Cu25519Mon *xp, Cu25519Ell 
+*xr)`. The first argument is the input secret key. You should fill it with 32 
+random bytes before calling this function. The function will adjust this key. 
+The second argument is the public Montgomery key corresponding to this secret 
+key. The third argument is the Elligator2 representative corresponding to 
+this secret key. The function adjusts `xs` and computes both `xp` and `xr`.
 
-To recover the public key from an Elligator2 representative you use the function
-`cu25519_elligator2_rev (Cu25519Pub *xs, const Cu25519Rep &rep)`. You pass in the
-representative and you get the corresponding public key.
+To recover the public Montgomery key from an Elligator2 representative you 
+use the function `cu25519_elligator2_rev (Cu25519Mon *xs, const Cu25519Ell
+&rep)`. You pass in the representative and you get the corresponding public
+key.
 
 The Elligator2 representative cannot be distinguished from a random number.
 
-To compute the secret shared by two keys use `cu25519_shared_secret (uint8_t
-sh[32], const Cu25519Pub &xp, const Cu25519Sec &xs)` You pass the public key
-of the other party, `xp`, and your own secret key, `xs`. The function
-computes the shared secret by both keys and stores it in `sh`. Keep in mind
-that you need to hash this shared secret before using it.
+To compute the secret shared by two keys use `cu25519_shared_secret (uint8_t 
+sh[32], const Cu25519Ris &xp, const Cu25519Sec &xs)` or 
+`cu25519_shared_secret (uint8_t sh[32], const Cu25519Mon &xp, const 
+Cu25519Sec &xs)` You pass the public key of the other party, `xp`, and your 
+own secret key, `xs`. The function computes the shared secret by both keys 
+and stores it in `sh`. Keep in mind that you need to hash this shared secret 
+before using it. The functions take the public key in either Montgomery or 
+Ristretto format. If the Montgomery and Ristretto values correspond to the 
+same secret key then the computed shared secret will be the same.
 
-To sign a message use `cu25519_sign (const uint8_t *m, size_t mlen, const
-Cu25519Pair &xp, uint8_t sig[64])` Pass the message to be signed in `m[0..mlen[`
-and the public and private keys of the signer. It will compute the signature
-and store it in `sig[0..64[`.
+To sign a message use `cu25519_sign (const uint8_t *m, size_t mlen, const 
+Cu25519Ris &xp, const Cu25519Sec &xs, uint8_t sig[64])` Pass the message to 
+be signed in `m[0..mlen[` and the public and private keys of the signer. It 
+will compute the signature and store it in `sig[0..64[`.
 
 To verify a message use `cu25519_verify (const uint8_t *m, size_t mlen, const
-uint8_t sig[64], const Cu25519Pub &xp)` Pass the message to be verified in
+uint8_t sig[64], const Cu25519Ris &xp)` Pass the message to be verified in
 `m[0..mlen[`, the signature in `sig[0..64[` and the public key of the signer
 in `xp`. The function will return 0 if the signature is valid or another
 value if the signature is not valid.
@@ -411,12 +418,11 @@ them in https://whispersystems.org/docs/ It assumes that parties to the
 communication will be offline at some times and a server stores the messages
 for them.
 
-Signal uses the XEd25519 signature scheme. The only advantage of this scheme
-over our Cu25519 signatures is that it works with existing X25519 keys which
-are not Cu25519 keys (they do not have a sign bit). XEd25519 requires that we
-keep the public Ed25519 key of the signer when signing. Cu25519 keys always
-have the sign bit and there is no need to keep the Ed25519 key around.
-Therefore using Cu25519 simplifies key management when compared to XEd25519.
+Signal uses the XEd25519 signature scheme. The only advantage of this scheme 
+over our Ristretto signatures is that it works with existing X25519 keys which 
+are do not have a sign bit). XEd25519 requires that we keep the public 
+Ed25519 key of the signer when signing. qDSA is a cleaner solution to this 
+problem and the Ristretto format is the better solution for future extensions.
 
 Signal uses the X3DH protocol for establishing the shared key. It uses an
 ephemeral key (EK), a signed prekey (SPK) and a persistent identity key (IK).
@@ -496,12 +502,9 @@ Although Keccak and its derivative K12 offer a new way of implementing
 symmetric cryptography using the sponge construction they are slower
 than Blake2b.
 
-For public key shared secret establishment we use X25519. For public key
-signatures we use Ed25519 with keys encoded using Montgomery X and sign bit
-of Edwards X. The normal Ed25519 has been defined using Edwards Y and sign
-bit of Edwards Y. Using Montgomery X allows us to have keys that can be used
-for both X25519 and Ed25519. Following the choice mentioned above we use
-Ed25519 with Blake2b instead of SHA-512.
+For public key shared secret establishment we use X25519. For public key 
+signatures we use Ed25519 with keys encoded using the Ristretto format. 
+Ristretto keys can be directly used for signatures and for DH. 
 
 For password based key derivation we use Scrypt. Scrypt is well established as
 a memory hard function. Argon2 is still new. Although Argon2i was proposed as

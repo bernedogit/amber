@@ -1,7 +1,7 @@
 #ifndef AMBER_BLOCKBUF_HPP
 #define AMBER_BLOCKBUF_HPP
 
-/* Copyright (c) 2015, 2017  Pelayo Bernedo.
+/* Copyright (c) 2015-2019  Pelayo Bernedo.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -94,9 +94,9 @@ class EXPORTFN Blockbuf : public std::streambuf {
 	        unsigned block_filler, int shifts,  Chakey *kw, uint64_t *nonce64);
 	void write_pub_header(std::streambuf *io, unsigned block_size,
 	    unsigned block_filler, const Cu25519Pair &tx,
-	    const std::vector<Cu25519Pub> &rx,
-	    Chakey *kw, uint64_t *nonce64, std::vector<Chakey> &kav,
-	    bool spoof = false, uint32_t info_size=0);
+	    const std::vector<Cu25519Ris> &rx,
+        Chakey *kw, uint64_t *nonce64, std::vector<Chakey> &kav,
+        bool spoof = false, uint32_t info_size=0);
 
 protected:
 
@@ -137,13 +137,13 @@ public:
 	void init_write (std::streambuf *sb, const char *password, ptrdiff_t bs=-1,
 	                 ptrdiff_t bf=-1, int shifts=default_shifts);
 	void init_write (std::streambuf *sb, const Cu25519Pair &tx,
-	                 const std::vector<Cu25519Pub> &rx, ptrdiff_t bs=-1,
+	                 const std::vector<Cu25519Ris> &rx, ptrdiff_t bs=-1,
 	                 ptrdiff_t bf=-1);
-	void init_spoof(std::streambuf *sb, const Cu25519Pair &rx, const Cu25519Pub &txpub,
+	void init_spoof(std::streambuf *sb, const Cu25519Pair &rx, const Cu25519Ris &txpub,
 	                int ndummies, ptrdiff_t bs, ptrdiff_t bf);
 
 	void init_read (std::streambuf *sb, const char *password, int shift_max=0);
-	void init_read (std::streambuf *sb, const Cu25519Pair &rx, Cu25519Pub *sender, int *nrx);
+	void init_read (std::streambuf *sb, const Cu25519Pair &rx, Cu25519Ris *sender, int *nrx);
 };
 
 
@@ -198,14 +198,14 @@ public:
 	// Open a file with key based encryption. You pass the keys of the sender
 	// in txpub and txsec. You pass a list of keys for which the message will
 	// be encrypted in rx. bs and bf are as above.
-	ofstream(const char *name, const Cu25519Pair &tx, const std::vector<Cu25519Pub> &rx,
+	ofstream(const char *name, const Cu25519Pair &tx, const std::vector<Cu25519Ris> &rx,
 	         ptrdiff_t bs=-1, ptrdiff_t bf=-1);
 	~ofstream();
 	// Same as the corresponding constructors.
 	void open(const char *name, const char *password, ptrdiff_t bs=-1,
 	          ptrdiff_t bf=-1, int shifts = Blockbuf::default_shifts);
 	void open(const char *name, const Cu25519Pair &tx,
-	          const std::vector<Cu25519Pub> &rx,
+	          const std::vector<Cu25519Ris> &rx,
 	          ptrdiff_t bs=-1, ptrdiff_t bf=-1);
 
 	// Spoof a file. It will look like if it had been encrypted by txpub for
@@ -215,7 +215,7 @@ public:
 	// wrote it. As long as Bob knows how to use the program or library then
 	// Alice's claim is credible.
 	void open_spoof(const char *name, const Cu25519Pair &rx,
-	          const Cu25519Pub &txpub, int ndummies, ptrdiff_t bs=-1, ptrdiff_t bf=-1);
+	          const Cu25519Ris &txpub, int ndummies, ptrdiff_t bs=-1, ptrdiff_t bf=-1);
 	void close();
 };
 
@@ -237,15 +237,15 @@ public:
 
 	// Open a file encrypted with a key. Pass in the receiver's Cu25519 secret key and
 	// read the sender's public key. Throw on errors.
-	ifstream(const char *name, const Cu25519Pair &rx, Cu25519Pub *sender, int *nrx);
+	ifstream(const char *name, const Cu25519Pair &rx, Cu25519Ris *sender, int *nrx);
 	// Same but doesn't throw. It sets the badbit.
-	ifstream(const char *name, const Cu25519Pair &rx, Cu25519Pub *sender, int *nrx, std::nothrow_t);
+	ifstream(const char *name, const Cu25519Pair &rx, Cu25519Ris *sender, int *nrx, std::nothrow_t);
 
 	// Same as above.
 	void open(const char *name, const char *password, int shifts_max=0);
 	void open(const char *name, const char *password, std::nothrow_t, int shifts_max=0);
-	void open(const char *name, const Cu25519Pair &rx, Cu25519Pub *sender, int *nrx);
-	void open(const char *name, const Cu25519Pair &rx, Cu25519Pub *sender, int *nrx, std::nothrow_t);
+	void open(const char *name, const Cu25519Pair &rx, Cu25519Ris *sender, int *nrx);
+	void open(const char *name, const Cu25519Pair &rx, Cu25519Ris *sender, int *nrx, std::nothrow_t);
 	void close();
 	void clear(std::ios_base::iostate = std::ios_base::goodbit);
 };
@@ -281,13 +281,13 @@ void reveal(const char *oname, const char *iname, const char *pass1,
 // it was encrypted for rx but the hidden text is encrypted for rx2.
 EXPORTFN
 void hide(const char *ename, const char *bogus, const char *real,
-          const Cu25519Pair &tx, const std::vector<Cu25519Pub> &rx,
-          const Cu25519Pub &rx2, int bs, int bf);
+          const Cu25519Pair &tx, const std::vector<Cu25519Ris> &rx,
+          const Cu25519Ris &rx2, int bs, int bf);
 
 // Decrypt the second file using the key rx2.
 EXPORTFN
 void reveal(const char *oname, const char *iname, const Cu25519Pair &rx1,
-            const Cu25519Sec &rx2, Cu25519Pub *sender, int *nrx);
+            const Cu25519Sec &rx2, Cu25519Ris *sender, int *nrx);
 
 }}
 

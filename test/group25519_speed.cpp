@@ -68,32 +68,32 @@ std::ostream & operator<<(std::ostream &os, const std::chrono::duration<R,P> &du
 }
 
 
-typedef std::chrono::high_resolution_clock Clock;
-
+typedef std::chrono::steady_clock Clock;
 
 
 void measure(int n)
 {
 	Clock::time_point t1, t2;
 	unsigned char shs1[32], shs2[32];
-	Cu25519Pair x1, x2, x3;
-	Cu25519Rep ell;
+	Cu25519Sec x1s, x2s, x3s;
+	Cu25519Mon x1m, x2m, x3m;
+	Cu25519Ell ell;
 
-	randombytes_buf (x1.xs.b, 32);
-	randombytes_buf (x2.xs.b, 32);
-	randombytes_buf (x3.xs.b, 32);
+	randombytes_buf (x1s.b, 32);
+	randombytes_buf (x2s.b, 32);
+	randombytes_buf (x3s.b, 32);
 
 	twamber::Cu25519Sec txs1, txs2, txs3;
-	twamber::Cu25519Pub txp1, txp2, txp3;
-	twamber::Cu25519Rep tell;
-	memcpy (txs1.b, x1.xs.b, 32);
-	memcpy (txs2.b, x2.xs.b, 32);
-	memcpy (txs3.b, x3.xs.b, 32);
+	twamber::Cu25519Ris txp1, txp2;
+	twamber::Cu25519Ell tell;
+	memcpy (txs1.b, x1s.b, 32);
+	memcpy (txs2.b, x2s.b, 32);
+	memcpy (txs3.b, x3s.b, 32);
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		cu25519_generate (&x1.xs, &x1.xp);
-		cu25519_generate (&x2.xs, &x2.xp);
+		cu25519_generate (&x1s, &x1m);
+		cu25519_generate (&x2s, &x2m);
 	}
 	t2 = Clock::now();
 	format(std::cout, "cu25519 key generation: %d\n", (t2 - t1)/n/2);
@@ -108,47 +108,57 @@ void measure(int n)
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		montgomery_base (x1.xp.b, x1.xs.b);
+		twamber::cu25519_shared_secret (shs1, txp1, txs2);
+	}
+	t2 = Clock::now();
+	format(std::cout, "twamber::cu25519_shared_secret: %d\n", (t2 - t1)/n);
+
+	t1 = Clock::now();
+	for (int i = 0; i < n; ++i) {
+		montgomery_base (x1m.b, x1s.b);
 	}
 	t2 = Clock::now();
 	format(std::cout, "ladder key generation: %d\n", (t2 - t1)/n);
 
-	Cu25519Sec xs_saved = x3.xs;
+	Cu25519Sec xes, xs_saved = x3s;
+	Cu25519Mon xem;
+
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		x3.xs = xs_saved;
-		cu25519_elligator2_gen (&x3.xs, &x3.xp, &ell);
+		xes = xs_saved;
+		cu25519_elligator2_gen (&xes, &xem, &ell);
 	}
 	t2 = Clock::now();
 	format(std::cout, "cu25519_elligator2_gen(): %d\n", (t2 - t1)/n);
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		cu25519_elligator2_rev (&x3.xp, ell);
+		cu25519_elligator2_rev (&x3m, ell);
 	}
 	t2 = Clock::now();
 	format(std::cout, "cu25519_elligator2_rev(): %d\n", (t2 - t1)/n);
 
 	twamber::Cu25519Sec txs_saved = txs3;
+	twamber::Cu25519Mon txm3;
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
 		txs3 = txs_saved;
-		cu25519_elligator2_gen (&txs3, &txp3, &tell);
+		cu25519_elligator2_gen (&txs3, &txm3, &tell);
 	}
 	t2 = Clock::now();
 	format(std::cout, "twamber::cu25519_elligator2_gen(): %d\n", (t2 - t1)/n);
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		cu25519_elligator2_rev (&txp3, tell);
+		cu25519_elligator2_rev (&txm3, tell);
 	}
 	t2 = Clock::now();
 	format(std::cout, "twamber::cu25519_elligator2_rev(): %d\n", (t2 - t1)/n);
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		cu25519_shared_secret(shs1, x1.xp, x2.xs);
-		cu25519_shared_secret(shs2, x2.xp, x1.xs);
+		cu25519_shared_secret(shs1, x1m, x2s);
+		cu25519_shared_secret(shs2, x2m, x1s);
 	}
 	t2 = Clock::now();
 	std::cout << "cu25519 shared secret: " << (t2 - t1)/n/2 << '\n';
@@ -170,44 +180,44 @@ void measure(int n)
 	uint8_t mx[32], ey[32];
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		amber::mx_to_ey (ey, x1.xp.b);
+		amber::mxs_to_eys (ey, x1m.b);
 	}
 	t2 = Clock::now();
 	std::cout << "conversion mx to ey: " << (t2 - t1)/n << '\n';
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		amber::ey_to_mx (mx, ey);
+		amber::eys_to_mxs (mx, ey);
 	}
 	t2 = Clock::now();
 	std::cout << "conversion ey to mx: " << (t2 - t1)/n << '\n';
 
 	amber::Edwards e1, e2;
-	scalarbase (e1, x1.xs.b);
+	scalarbase (e1, x1s.b);
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		scalarmult (e2, e1, x2.xs.b);
+		scalarmult (e2, e1, x2s.b);
 	}
 	t2 = Clock::now();
 	std::cout << "scalarmult: " << (t2 - t1)/n << '\n';
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		scalarmult_wnaf (e2, e1, x2.xs.b);
+		scalarmult_wnaf (e2, e1, x2s.b);
 	}
 	t2 = Clock::now();
 	std::cout << "scalarmult_nafw: " << (t2 - t1)/n << '\n';
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		scalarmult_fw (e2, e1, x2.xs.b);
+		scalarmult_fw (e2, e1, x2s.b);
 	}
 	t2 = Clock::now();
 	std::cout << "scalarmult_fw: " << (t2 - t1)/n << '\n';
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		scalarbase (e2, x2.xs.b);
+		scalarbase (e2, x2s.b);
 	}
 	t2 = Clock::now();
 	std::cout << "scalarbase: " << (t2 - t1)/n << '\n';
@@ -215,29 +225,29 @@ void measure(int n)
 	Fe ru, rv, rz;
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		montgomery_base (ru, rv, rz, x2.xs.b);
+		montgomery_base (ru, rv, rz, x2s.b);
 	}
 	t2 = Clock::now();
 	std::cout << "montgomery_base: " << (t2 - t1)/n << '\n';
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		montgomery_base (e2, x2.xs.b);
+		montgomery_base (e2, x2s.b);
 	}
 	t2 = Clock::now();
 	std::cout << "montgomery_base ed output: " << (t2 - t1)/n << '\n';
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		montgomery_ladder (e2, edwards_base_point, x2.xs.b);
+		montgomery_ladder (e2, edwards_base_point, x2s.b);
 	}
 	t2 = Clock::now();
 	std::cout << "montgomery ladder ed input and output: " << (t2 - t1)/n << '\n';
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		montgomery_ladder (e2, edwards_base_point, x2.xs.b);
-		edwards_to_mx (mx, e2);
+		montgomery_ladder (e2, edwards_base_point, x2s.b);
+		edwards_to_mxs (mx, e2);
 	}
 	t2 = Clock::now();
 	std::cout << "Edwards shared secret: " << (t2 - t1)/n << '\n';
@@ -245,48 +255,118 @@ void measure(int n)
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		edwards_to_mx (mx, e1);
+		edwards_to_mxs (mx, e1);
 	}
 	t2 = Clock::now();
-	std::cout << "edwards_to_mx: " << (t2 - t1)/n << '\n';
+	std::cout << "edwards_to_mxs: " << (t2 - t1)/n << '\n';
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		mx_to_edwards (e1, mx);
+		mxs_to_edwards (e1, mx, false);
 	}
 	t2 = Clock::now();
-	std::cout << "mx_to_edwards: " << (t2 - t1)/n << '\n';
+	std::cout << "mxs_to_edwards: " << (t2 - t1)/n << '\n';
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		edwards_to_ey (ey, e1);
+		edwards_to_eys (ey, e1);
 	}
 	t2 = Clock::now();
-	std::cout << "edwards_to_ey: " << (t2 - t1)/n << '\n';
+	std::cout << "edwards_to_eys: " << (t2 - t1)/n << '\n';
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
-		ey_to_edwards (e1, ey);
+		eys_to_edwards (e1, ey, false);
 	}
 	t2 = Clock::now();
-	std::cout << "ey_to_edwards: " << (t2 - t1)/n << '\n';
+	std::cout << "eys_to_edwards: " << (t2 - t1)/n << '\n';
 
-	cu25519_generate (&x1.xs, &x1.xp);
-	mx_to_ey (ey, x1.xp.b);
-	memcpy (mx, x1.xp.b, 32);
+	uint8_t rs[32];
+	Edwards rsdec;
+	t1 = Clock::now();
+	for (int i = 0; i < n; ++i) {
+		edwards_to_ristretto (rs, e1);
+	}
+	t2 = Clock::now();
+	std::cout << "edwards_to_ristretto: " << (t2 - t1)/n << '\n';
+
+	t1 = Clock::now();
+	for (int i = 0; i < n; ++i) {
+		ristretto_to_edwards (rsdec, rs);
+	}
+	t2 = Clock::now();
+	std::cout << "ristretto_to_edwards: " << (t2 - t1)/n << '\n';
+
+
+	Cu25519Sec rsc;
+	Cu25519Ris ris;
+	randombytes_buf (rsc.b, 32);
+	t1 = Clock::now();
+	for (int i = 0; i < n; ++i) {
+		cu25519_generate_no_mask (rsc, &ris);
+	}
+	t2 = Clock::now();
+	std::cout << "ristretto_generate: " << (t2 - t1)/n << '\n';
+
+	uint8_t rsmul[32];
+	t1 = Clock::now();
+	for (int i = 0; i < n; ++i) {
+		cu25519_shared_secret (rsmul, ris, x1s);
+	}
+	t2 = Clock::now();
+	std::cout << "Ristretto ladder: " << (t2 - t1)/n << '\n';
+
+	t1 = Clock::now();
+	for (int i = 0; i < n; ++i) {
+		cu25519_shared_secret_cof (rsmul, ris, x1s);
+	}
+	t2 = Clock::now();
+	std::cout << "Ristretto ladder_cof: " << (t2 - t1)/n << '\n';
+
+	Fe fe1, fe2;
+	uint8_t scr[32];
+	randombytes_buf (scr, 32);
+	load (fe1, scr);
+	fe2 = fe1;
+	int fen = n * 100;
+
+	std::cout << "Loops enlarged 100 times\n";
+	t1 = Clock::now();
+	for (int i = 0; i < fen; ++i) {
+		sqrt (fe1, fe1);
+	}
+	t2 = Clock::now();
+	format (std::cout, "sqrt() took %d\n", (t2 - t1)/n);
+
+	t1 = Clock::now();
+	for (int i = 0; i < fen; ++i) {
+		invsqrt (fe1, fe1);
+	}
+	t2 = Clock::now();
+	format (std::cout, "invsqrt() took %d\n", (t2 - t1)/n);
+
+	t1 = Clock::now();
+	for (int i = 0; i < fen; ++i) {
+		sqrt_ratio_m1 (fe1, fe1, fe2);
+	}
+	t2 = Clock::now();
+	format (std::cout, "sqrt_ratio_m1() took %d\n", (t2 - t1)/n);
+
+	cu25519_generate (&x1s, &x1m);
+	mxs_to_eys (ey, x1m.b);
+	memcpy (mx, x1m.b, 32);
 
 	uint8_t ns[32], ey0[32];
 	memcpy (ey0, ey, 32);
 	if (ey0[31] & 0x80) {
-		negate_scalar (ns, x1.xs.b);
+		negate_scalar (ns, x1s.b);
 		ey0[31] &= 0x7F;
 	} else {
-		memcpy (ns, x1.xs.b, 32);
+		memcpy (ns, x1s.b, 32);
 	}
 
-	memcpy (txs1.b, x1.xs.b, 32);
-	memcpy (txp1.b, x1.xp.b, 32);
-
+	memcpy (txs1.b, x1s.b, 32);
+	twamber::cu25519_generate (&txs1, &txp1);
 	unsigned char sig[64], sig2[64];
 	static const int text_lengths[] = { 64, 20000 };
 	for (unsigned i = 0; i < sizeof(text_lengths)/sizeof(text_lengths[0]); ++i) {
@@ -295,32 +375,32 @@ void measure(int n)
 
 		t1 = Clock::now();
 		for (int i = 0; i < n; ++i) {
-			cu25519_sign (&item[0], item.size(), x1, sig);
+			sign_bmx ("foo", &item[0], item.size(), x1m.b, x1s.b, sig);
 		}
 		t2 = Clock::now();
-		std::cout << "cu25519 sign: " << (t2 - t1)/n << '\n';
+		std::cout << "sign_bmx: " << (t2 - t1)/n << '\n';
 
 		t1 = Clock::now();
 		for (int i = 0; i < n; ++i) {
-			if (cu25519_verify(&item[0], item.size(), sig, x1.xp) != 0) {
+			if (verify_bmx ("foo", &item[0], item.size(), sig, x1m.b) != 0) {
 				std::cout << "error in verify\n";
 				break;
 			}
 		}
 		t2 = Clock::now();
-		std::cout << "cu25519 verify: " << (t2 - t1)/n << '\n';
+		std::cout << "verify_bmx: " << (t2 - t1)/n << '\n';
 
 		t1 = Clock::now();
 		for (int i = 0; i < n; ++i) {
-			cu25519_sign (NULL, &item[0], item.size(), txp1, txs1, sig);
+			twamber::cu25519_sign (NULL, &item[0], item.size(), txp1, txs1, sig);
 		}
 		t2 = Clock::now();
 		std::cout << "twamber::cu25519 sign: " << (t2 - t1)/n << '\n';
 
 		t1 = Clock::now();
 		for (int i = 0; i < n; ++i) {
-			if (cu25519_verify (NULL, &item[0], item.size(), sig, txp1) != 0) {
-				std::cout << "error in verify\n";
+			if (twamber::cu25519_verify (NULL, &item[0], item.size(), sig, txp1) != 0) {
+				std::cout << "error in twamber::verify\n";
 				break;
 			}
 		}
@@ -332,46 +412,80 @@ void measure(int n)
 			sign_sha (&item[0], item.size(), ey0, ns, sig);
 		}
 		t2 = Clock::now();
-		std::cout << "sign_sha, cached: " << (t2 - t1)/n << '\n';
-		if (verify_sey (&item[0], item.size(), sig, ey0, true) != 0) {
-			std::cout << "error in verify_sey, ey0\n";
-		}
+		std::cout << "sign_sha: " << (t2 - t1)/n << '\n';
 
 		t1 = Clock::now();
-		for (int i = 0; i < n; ++i) {
-			sign_conv (&item[0], item.size(), ey, x1.xs.b, sig2);
-		}
-		t2 = Clock::now();
-		std::cout << "sign_conv: " << (t2 - t1)/n << '\n';
-		if (crypto_neq (sig, sig2, 64)) {
-			std::cout << "error in sign_sha/sign_conv\n";
-		}
-
-		if (verify_sey (&item[0], item.size(), sig, ey0, true) != 0) {
+		if (verify_sey (&item[0], item.size(), sig, ey0) != 0) {
 			std::cout << "error in verify_sey, ey0\n";
 		}
+		t2 = Clock::now();
+		std::cout << "verify_sey: " << (t2 - t1)/n << '\n';
+
 
 		t1 = Clock::now();
 		for (int i = 0; i < n; ++i) {
 			uint8_t cy[32];
-			mx_to_ey (cy, x1.xs.b);
-			sign_sha (&item[0], item.size(), cy, x1.xs.b, sig2);
+			mxs_to_eys (cy, x1s.b);
+			sign_sha (&item[0], item.size(), cy, x1s.b, sig2);
 		}
 		t2 = Clock::now();
 		std::cout << "mx->ey, sign_sha: " << (t2 - t1)/n << '\n';
 
-		uint8_t mx0[32];
-		memcpy (mx0, mx, 32);
-		mx0[31] &= 0x7F;
 		t1 = Clock::now();
 		for (int i = 0; i < n; ++i) {
-			if (verify_sey (&item[0], item.size(), sig, mx0, false) != 0) {
-				std::cout << "error in verify_sey, mx0\n";
+			curvesig ("Amber sig", &item[0], item.size(), x1m.b, x1s.b, sig);
+		}
+		t2 = Clock::now();
+		format (std::cout, "curvesig took %d\n", (t2 - t1)/n);
+
+		t1 = Clock::now();
+		for (int i = 0; i < n; ++i) {
+			if (curverify ("Amber sig", &item[0], item.size(), sig, x1m.b) != 0) {
+				std::cout << "error in curverify\n";
 				break;
 			}
 		}
 		t2 = Clock::now();
-		std::cout << "verify_sey took " << (t2 - t1)/n << '\n';
+		std::cout << "curverify took " << (t2 - t1)/n << '\n';
+
+		t1 = Clock::now();
+		for (int i = 0; i < n; ++i) {
+			if (curverify_mont ("Amber sig", &item[0], item.size(), sig, x1m.b) != 0) {
+				std::cout << "error in curverify_mont\n";
+				break;
+			}
+		}
+		t2 = Clock::now();
+		std::cout << "curverify_mont took " << (t2 - t1)/n << '\n';
+
+
+		uint8_t rissig[64];
+		t1 = Clock::now();
+		for (int i = 0; i < n; ++i) {
+			cu25519_sign ("ristretto", &item[0], item.size(), ris, rsc, rissig);
+		}
+		t2 = Clock::now();
+		std::cout << "cu25519_sign (ris): " << (t2 - t1)/n << '\n';
+
+		t1 = Clock::now();
+		for (int i = 0; i < n; ++i) {
+			if (cu25519_verify ("ristretto", &item[0], item.size(), rissig, ris) != 0) {
+				std::cout << "error in cu25519_verify\n";
+				break;
+			}
+		}
+		t2 = Clock::now();
+		std::cout << "cu25519_verify (ris): " << (t2 - t1)/n << '\n';
+
+		t1 = Clock::now();
+		for (int i = 0; i < n; ++i) {
+			if (ristretto_qdsa_verify ("ristretto", &item[0], item.size(), rissig, ris) != 0) {
+				std::cout << "error in ristretto_qdsa_verify\n";
+				break;
+			}
+		}
+		t2 = Clock::now();
+		std::cout << "ristretto_qdsa_verify: " << (t2 - t1)/n << '\n';
 	}
 }
 
@@ -385,16 +499,16 @@ bool is_masked (const uint8_t b[32])
 void test_bad_keys()
 {
 	Cu25519Sec xs;
-	Cu25519Pub xp, xp0;
+	Cu25519Mon xp, xp0;
 	uint8_t sh[32];
 	// -1
-	Cu25519Pub xpm1 = { { 0xec, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	Cu25519Mon xpm1 = { { 0xec, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 	                      0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 	                      0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 	                      0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f
 					  } };
-	Cu25519Pub xp1 = { { 1 } };
-	Cu25519Pub xp2 = { { 2 } };
+	Cu25519Mon xp1 = { { 1 } };
+	Cu25519Mon xp2 = { { 2 } };
 
 	randombytes_buf(xs.b, 32);
 	cu25519_generate (&xs, &xp);
@@ -416,11 +530,11 @@ void test_bad_keys()
 
 	Edwards e;
 	memset (&e, 1, sizeof e);
-	int err = mx_to_edwards (e, xp0.b, false);
+	int err = mxs_to_edwards (e, xp0.b, false);
 	std::cout << "MX=0, err=" << err << "  e=" << e << '\n';
-	err = mx_to_edwards (e, xpm1.b, false);
+	err = mxs_to_edwards (e, xpm1.b, false);
 	std::cout << "MX=-1, err=" << err << "  e=" << e << '\n';
-	err = mx_to_edwards (e, xp1.b, false);
+	err = mxs_to_edwards (e, xp1.b, false);
 	std::cout << "MX=1, err=" << err << "  e=" << e << '\n';
 
 	static uint8_t b[32] = {
@@ -452,17 +566,17 @@ void test_sig()
 	amber::mask_scalar (s);
 	amber::Edwards e;
 	scalarbase (e, s);
-	edwards_to_ey (ey, e);
+	edwards_to_eys (ey, e);
 
 	uint8_t mx2[32], ey2[32];
-	edwards_to_ey_mx (ey2, mx2, e);
+	edwards_to_eys_mxs (ey2, mx2, e);
 	uint8_t mx3[32];
-	edwards_to_mx (mx3, e);
+	edwards_to_mxs (mx3, e);
 	if (amber::crypto_neq (ey2, ey, 32)) {
-		std::cout << "error in edwards_to_ey_mx, ey\n";
+		std::cout << "error in edwards_to_eys_mxs, ey\n";
 	}
 	if (amber::crypto_neq (mx2, mx3, 32)) {
-		std::cout << "error in edwards_to_ey_mx, mx\n";
+		std::cout << "error in edwards_to_eys_mxs, mx\n";
 	}
 
 	uint8_t sig[64];
@@ -479,22 +593,13 @@ void test_sig()
 	}
 	amber::sign_sha (s, 32, ey0, ns, sig);
 	std::cout << "verify_sey2: " << amber::verify_sey (s, 32, sig, ey0) << '\n';
-
-	uint8_t mx0[32];
-	amber::ey_to_mx (mx0, ey0);
-	std::cout << "verify_sey3: " << amber::verify_sey (s, 32, sig, mx0, false) << '\n';
-
-	show_block (std::cout, "scalar    ", s, 32);
-	show_block (std::cout, "neg scalar", ns, 32);
-	show_block (std::cout, "ey ", ey, 32);
-	show_block (std::cout, "ney", ey0, 32);
 }
 
 
 
 void real_main()
 {
-	measure(2000);
+	measure (1000);
 	test_bad_keys();
 	test_sig();
 }

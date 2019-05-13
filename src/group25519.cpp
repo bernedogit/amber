@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Pelayo Bernedo.
+ * Copyright (c) 2017-2019, Pelayo Bernedo.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -77,6 +77,12 @@ static const Edwards edwards_base = {
 	  0x0abe37d, 0x1274732, 0x0ccacdd, 0x0fd78b7, 0x19e1d7c }
 };
 
+static const Fe d_minus_one_sq    = { 0x0ed4d20, 0x156aa91, 0x3332635, 0x16580f0, 0x34a7928, 0x09b4eeb, 0x26997a9, 0x048299b, 0x3af66c2, 0x165a2cd };
+static const Fe one_minus_d_sq    = { 0x05fc176, 0x1027065, 0x2a1fc4f, 0x1c66af1, 0x0b20684, 0x070dfe4, 0x255eedf, 0x01af332, 0x28b2b3e, 0x00a41ca };
+static const Fe invsqrt_a_minus_d = { 0x05d40ea, 0x03f6aa0, 0x257d339, 0x0bad20b, 0x274bc58, 0x001d840, 0x13dc8ff, 0x19442d8, 0x05cfaff, 0x1e1b224 };
+static const Fe sqrt_ad_minus_one = { 0x17b2e1b, 0x1fda812, 0x297afd2, 0x060dbc2, 0x2be7638, 0x1f5d1fd, 0x27e6498, 0x11581e7, 0x3f2b834, 0x0dda4c6 };
+
+
 #elif AMBER_LIMB_BITS >= 64
 
 static const Fe p = { p0_64, mask51, mask51, mask51, mask51 };
@@ -105,6 +111,16 @@ static const Edwards edwards_base = {
 	{ 0x68ab3a5b7dda3, 0xeea2a5eadbb, 0x2af8df483c27e, 0x332b375274732, 0x67875f0fd78b7 }
 };
 
+static const Fe invsqrt_a_minus_d = { 0xfdaa805d40ea, 0x2eb482e57d339, 0x7610274bc58,
+                                      0x6510b613dc8ff, 0x786c8905cfaff };
+static const Fe one_minus_d_sq    = { 0x409c1945fc176, 0x719abc6a1fc4f, 0x1c37f90b20684,
+                                      0x6bccca55eedf, 0x29072a8b2b3e };
+static const Fe d_minus_one_sq    = { 0x55aaa44ed4d20, 0x59603c3332635, 0x26d3baf4a7928,
+                                      0x120a66e6997a9, 0x5968b37af66c2 };
+static const Fe sqrt_ad_minus_one = { 0x7f6a0497b2e1b, 0x1836f0a97afd2, 0x7d747f6be7638,
+                                      0x456079e7e6498, 0x376931bf2b834 };
+
+
 #endif
 
 const Edwards edwards_base_point = edwards_base;
@@ -132,7 +148,7 @@ static void show_edwards (std::ostream &os, const char *label, const Edwards &ed
 
 */
 
-void edwards_to_mx (uint8_t res[32], const Edwards &p)
+void edwards_to_mxs (uint8_t res[32], const Edwards &p)
 {
 	Fe zmy, h;
 	sub (zmy, p.z, p.y);
@@ -152,7 +168,7 @@ void edwards_to_mx (uint8_t res[32], const Edwards &p)
 
 // Store the point as Edwards y with the sign bit in bit 255.
 
-void edwards_to_ey (uint8_t res[32], const Edwards &p)
+void edwards_to_eys (uint8_t res[32], const Edwards &p)
 {
 	Fe inv, tmp;
 	invert (inv, p.z);
@@ -178,7 +194,7 @@ void edwards_to_ey (uint8_t res[32], const Edwards &p)
 
 */
 
-void edwards_to_ey_mx (uint8_t ey[32], uint8_t mx[32], const Edwards &p)
+void edwards_to_eys_mxs (uint8_t ey[32], uint8_t mx[32], const Edwards &p)
 {
 	Fe zmy, h, w;
 	sub (zmy, p.z, p.y);
@@ -229,7 +245,7 @@ void edwards_to_ey_mx (uint8_t ey[32], uint8_t mx[32], const Edwards &p)
 
 // If neg is true then select the negative value.
 
-int mx_to_edwards (Edwards &res, const uint8_t mx[32], bool neg)
+int mxs_to_edwards (Edwards &res, const uint8_t mx[32], bool neg)
 {
 	Fe u, t1, t2, a, b, h, s;
 	enum { A = 486662 };
@@ -294,7 +310,7 @@ inline bool is_zero_vartime (Fe &fe)
 
 // Return 0 if ok. -1 on errors.
 
-int ey_to_edwards (Edwards &res, const uint8_t ey[32], bool neg)
+int eys_to_edwards (Edwards &res, const uint8_t ey[32], bool neg)
 {
 	Fe u, v, y, y2, tmp1, tmp2, v4, x2;
 
@@ -345,11 +361,15 @@ int ey_to_edwards (Edwards &res, const uint8_t ey[32], bool neg)
 
 // Convert compressed Edwards y to compressed Montgomery x, with sign bits.
 
-void ey_to_mx (uint8_t mx[32], const uint8_t ey[32])
+// The y=1 (identity point) it maps to u = ∞ (the identity point in
+// Montgomery). However our routine maps it to u=0.
+
+void eys_to_mxs (uint8_t mx[32], const uint8_t ey[32])
 {
 	Fe y, t1, t2;
 
 	// u = (1+y)/(1-y)
+
 	load (y, ey);
 	add_no_reduce (t1, y, feone);
 	sub (t2, feone, y);
@@ -360,8 +380,9 @@ void ey_to_mx (uint8_t mx[32], const uint8_t ey[32])
 }
 
 // Convert compressed Montgomery x to compressed Edwards y, with sign bits.
+// When u == -1 this fails and returns ey == 0.
 
-void mx_to_ey (uint8_t ey[32], const uint8_t mx[32])
+void mxs_to_eys (uint8_t ey[32], const uint8_t mx[32])
 {
 	// y = (u - 1)/(u + 1)
 	Fe x, y, tmp0, tmp1;
@@ -379,7 +400,7 @@ void mx_to_ey (uint8_t ey[32], const uint8_t mx[32])
 std::ostream & operator<< (std::ostream &os, const Edwards &rhs)
 {
 	uint8_t ey[32];
-	edwards_to_ey (ey, rhs);
+	edwards_to_eys (ey, rhs);
 
 	os << std::hex << std::setfill ('0');
 	int count = 0;
@@ -551,6 +572,11 @@ inline void point_sub (Edwards &res, const Edwards &p, const Edwards &q)
 	mul (res.z, f, g);
 }
 
+void sub (Edwards &res, const Edwards &a, const Edwards &b)
+{
+	point_sub (res, a, b);
+}
+
 inline void point_sub (Edwards &res, const Edwards &p, const Summand &q)
 {
 	Fe a, b, c, d, e, f, g, h;
@@ -598,6 +624,12 @@ inline void point_double (Edwards &res, const Edwards &p)
 	mul (res.t, e, h);
 	mul (res.z, f, g);
 }
+
+void pdouble (Edwards &res, const Edwards &x)
+{
+	point_double (res, x);
+}
+
 
 
 void negate (Edwards &res, const Edwards &p)
@@ -862,6 +894,25 @@ static void compute_multiple (Precomputed &res, int8_t smult, int i)
 	select (res, neg, negative);
 }
 
+// This is base_point^2²⁵⁶
+
+#if AMBER_LIMB_BITS == 32
+static const Edwards bm = {
+	{ 0x23c9847, 0x0b2d5e7, 0x2ddfa9c, 0x02375e9, 0x3cd01b5, 0x1a2738f, 0x09db05c, 0x1105ca3, 0x37ae0ea, 0x08aae4e },
+	{ 0x3801e2f, 0x0002e2b, 0x28af68f, 0x14aa073, 0x1938654, 0x009e462, 0x36f9f83, 0x0b0df04, 0x1e39fb5, 0x1f8bade },
+	{ 0x2eb300f, 0x0d354d4, 0x18846f0, 0x13cbc39, 0x0913f4f, 0x0c5f5a3, 0x0f41a9c, 0x062db53, 0x036b61a, 0x1789558 },
+	{ 0x2f7d68d, 0x098e371, 0x13a0391, 0x041f04c, 0x31931ef, 0x030a46b, 0x38de645, 0x154c5a0, 0x0ac216f, 0x13d7df0 }
+};
+
+#else
+
+static const Edwards bm = {
+	{ 0x2cb579e3c9847, 0x8dd7a6ddfa9c, 0x689ce3fcd01b5, 0x441728c9db05c, 0x22ab93b7ae0ea },
+	{ 0xb8af801e2f, 0x52a81ce8af68f, 0x279189938654, 0x2c37c136f9f83, 0x7e2eb79e39fb5 },
+	{ 0x34d5352eb300f, 0x4f2f0e58846f0, 0x317d68c913f4f, 0x18b6d4cf41a9c, 0x5e2556036b61a },
+	{ 0x2638dc6f7d68d, 0x107c1313a0391, 0xc291af1931ef, 0x55316838de645, 0x4f5f7c0ac216f }
+};
+#endif
 
 void scalarbase (Edwards &res, const uint8_t scalar[32])
 {
@@ -876,14 +927,16 @@ void scalarbase (Edwards &res, const uint8_t scalar[32])
 
 	// Store the scalar in sc with limbs taking values between -8 and +7.
 	int8_t carry = 0;
-	for (int i = 0; i < 63; ++i) {
+	for (int i = 0; i < 64; ++i) {
 		sc[i] += carry;
 		// Set carry to 1 if sc[i] >= 8
 		carry = (sc[i] + 8) >> 4;
 		// Substract 16 if sc[i] >= 8
 		sc[i] -= carry << 4;
 	}
-	sc[63] += carry;
+	// Carry may still be 1 if we have the most significant bit of the scalar
+	// set. This does not happen in pure X25519/Ed25519 but we allow scalars
+	// of 256 bits. If carry is set we need to add base^2²⁵⁶ at the  end.
 
 	// Now compute res = P0 + 16P1, with P0 = sc₀*16⁰B + sc₂*16²B + sc₄*16⁴B
 	// + sc₆*16⁶B + ... + sc₆₂*16⁶²B and P1 = sc₁*16⁰B + sc₃*16²B + sc₅*16⁴B
@@ -891,7 +944,12 @@ void scalarbase (Edwards &res, const uint8_t scalar[32])
 	// multiples of 16^i*B where i is even. Furthermore we just store the
 	// positive values. Negative values are treated by obtaining its
 	// corresponding positive value and substracting.
+
+	// Set res to carry * base^2²⁵⁶ as the initial value. Using this initial
+	// value we do not need to do anything else to support 256 bits.
 	res = edzero;
+	select (res, bm, carry);
+
 	Edwards res1 = edzero;
 	Precomputed tmp;
 	for (int i = 0; i < 32; ++i) {
@@ -912,7 +970,7 @@ void scalarbase (Edwards &res, const uint8_t scalar[32])
 
 typedef int32_t Limbtype;
 
-// This is the order of the field in packed form.
+// This is the order of the group in packed form.
 static const Limbtype L[32] =  {
 	0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58,
 	0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
@@ -972,73 +1030,20 @@ void reduce (uint8_t *dst, const uint8_t src[64])
 	modL(dst, x);
 }
 
-// End of reduce from Tweet NaCl.
-
-
-
-
-
-// In the normal Ed25519: {seckey,r1} = hash(seed). We communicate R=rB,
-// where r = hash(r1, msg). If Eve wants to go from R to seckey she will
-// have to reverse a scalar multiplication and two hashes. We use r1 =
-// hash(seckey). In our scheme Eve also has to reverse a scalar
-// multiplication and two hashes.
-
-// We follow RFC 8032 and Keccak and allow a context prefix for the hash
-// function.  This transforms the hash function H(X) into H(prefix||X)
-
-void sign_bmx (const char *prefix, const uint8_t *m, size_t mlen,
-               const uint8_t A[32], const uint8_t scalar[32], uint8_t sig[64])
+void reduce32 (uint8_t *dst, const uint8_t src[32])
 {
-	uint8_t hr[64], r[32], hram[64], rhram[32];
-
-	blake2b (hr, 32, scalar, 32, NULL, 0);
-
-	size_t plen;
-	blake2b_ctx bs;
-	blake2b_init (&bs, 64, NULL, 0);
-	if (prefix != NULL) {
-		plen = strlen (prefix) + 1;
-		blake2b_update (&bs, prefix, plen); // Include the terminating null.
-	}
-	blake2b_update (&bs, hr, 32);
-	blake2b_update (&bs, m, mlen);
-	blake2b_final (&bs, hr);
-	reduce (r, hr);
-
-	// R = rB
-	Edwards R;
-	scalarbase (R, r);
-	edwards_to_ey (sig, R);
-
-	// rhram = H(R,A,m)
-	blake2b_init (&bs, 64, NULL, 0);
-	if (prefix != NULL) {
-		blake2b_update (&bs, prefix, plen);
-	}
-	blake2b_update (&bs, sig, 32);
-	blake2b_update (&bs, A, 32);
-	blake2b_update (&bs, m, mlen);
-	blake2b_final (&bs, hram);
-	reduce (rhram, hram);
-
-	// x = r + H(RAM)a
 	Limbtype x[64];
-	for (unsigned i = 0; i < 32; ++i) {
-		x[i] = (Limbtype) r[i];
+	for (int i = 0; i < 32; ++i) {
+		x[i] = (uint64_t) src[i];
 	}
-	for (unsigned i = 32; i < 64; ++i) {
+	for (int i = 32; i < 64; ++i) {
 		x[i] = 0;
 	}
-	for (unsigned i = 0; i < 32; ++i) {
-		for (unsigned j = 0; j < 32; ++j) {
-			x[i+j] += rhram[i] * (Limbtype) scalar[j];
-		}
-	}
-
-	// S = (r + H(RAM)a) mod L
-	modL (sig + 32, x);
+	modL(dst, x);
 }
+
+// End of reduce from Tweet NaCl.
+
 
 
 // See
@@ -1049,8 +1054,11 @@ void sign_bmx (const char *prefix, const uint8_t *m, size_t mlen,
 // where dᵢ can take values from -2^(w-1) to +2^(w-1). In addition all dᵢ
 // will be odd. At most one dᵢ out of every w values of i will be non zero.
 
-static void compute_naf_window (int8_t d[256], const uint8_t s[32], int w = 5)
+void compute_naf_window (int8_t d[257], const uint8_t s[32], int w = 5)
 {
+	// Ensure that the last bit is always zero. We accept scalars with all
+	// 256 bits set. This is more than what X25519.
+	d[256] = 0;
 	// First extract the bits so that they can be handled easily.
 	for (int i = 0; i < 256; ++i) {
 		d[i] = (s[i >> 3] >> (i & 7)) & 1;
@@ -1061,12 +1069,12 @@ static void compute_naf_window (int8_t d[256], const uint8_t s[32], int w = 5)
 	// Full window value.
 	int wm2 = 1 << w;
 
-	for (int i = 0; i < 256; ++i) {
+	for (int i = 0; i < 257; ++i) {
 		if (d[i]) {
 			// Collect a window's value.
 			int collect = d[i];
 			int j;
-			for (j = 1; j < w && (i + j < 256); ++j) {
+			for (j = 1; j < w && (i + j < 257); ++j) {
 				if (d[i + j]) {
 					collect += d[i + j] << j;
 					d[i + j] = 0;
@@ -1078,7 +1086,7 @@ static void compute_naf_window (int8_t d[256], const uint8_t s[32], int w = 5)
 			if (collect >= wm1) {
 				int k = i + j;
 				// Add 1 after the window.
-				while (k < 256) {
+				while (k < 257) {
 					if (d[k]) {
 						d[k] = 0;
 					} else {
@@ -1103,7 +1111,7 @@ static void compute_naf_window (int8_t d[256], const uint8_t s[32], int w = 5)
 
 void scalarmult_wnaf (Edwards &res, const Edwards &p, const uint8_t s[32])
 {
-	int8_t d[256];
+	int8_t d[257];
 	compute_naf_window (d, s, 5);
 
 	Edwards p2;
@@ -1116,7 +1124,7 @@ void scalarmult_wnaf (Edwards &res, const Edwards &p, const uint8_t s[32])
 	}
 
 	res = edzero;
-	for (int j = 255; j >= 0; --j) {
+	for (int j = 256; j >= 0; --j) {
 		point_double (res, res);
 		if (d[j] > 0) {
 			point_add (res, res, mulp[d[j]/2]);
@@ -1362,7 +1370,7 @@ static const Summand base_summands[16] = {
 void scalarmult_wnaf (Edwards &res, const uint8_t s1[32],
                       const Edwards &p, const uint8_t s2[32])
 {
-	int8_t d1[256], d2[256];
+	int8_t d1[257], d2[257];
 	compute_naf_window (d1, s1, 6);
 	compute_naf_window (d2, s2, 5);
 
@@ -1375,7 +1383,7 @@ void scalarmult_wnaf (Edwards &res, const uint8_t s1[32],
 	}
 
 	res = edzero;
-	for (int j = 255; j >= 0; --j) {
+	for (int j = 256; j >= 0; --j) {
 		point_double (res, res);
 		if (d1[j] > 0) {
 			point_add (res, res, base_summands[d1[j]/2]);
@@ -1392,6 +1400,77 @@ void scalarmult_wnaf (Edwards &res, const uint8_t s1[32],
 
 
 
+
+
+// In the normal Ed25519: {seckey,r1} = hash(seed). We communicate R=rB,
+// where r = hash(r1, msg). If Eve wants to go from R to seckey she will
+// have to reverse a scalar multiplication and two hashes. We use r1 =
+// hash(seckey). In our scheme Eve also has to reverse a scalar
+// multiplication and two hashes.
+
+// We follow RFC 8032 and Keccak and allow a context prefix for the hash
+// function. This transforms the hash function H(X) into H(prefix||X). We
+// store both R and A as Montgomery u with Edwards sign bit. The sign bit of
+// A is also stored as the most significant bit of the signature.
+
+void sign_bmx (const char *prefix, const uint8_t *m, size_t mlen,
+               const uint8_t A[32], const uint8_t scalar[32], uint8_t sig[64])
+{
+	uint8_t hr[64], r[32], hram[64], rhram[32];
+
+	blake2b (hr, 32, scalar, 32, NULL, 0);
+
+	size_t plen;
+	blake2b_ctx bs;
+	blake2b_init (&bs, 64, NULL, 0);
+	if (prefix != NULL) {
+		plen = strlen (prefix) + 1;
+		blake2b_update (&bs, prefix, plen); // Include the terminating null.
+	}
+	blake2b_update (&bs, hr, 32);
+	blake2b_update (&bs, m, mlen);
+	blake2b_final (&bs, hr);
+	reduce (r, hr);
+
+	// R = rB
+	Edwards R;
+	scalarbase (R, r);
+	edwards_to_mxs (sig, R);
+
+	// rhram = H(R,A,m)
+	blake2b_init (&bs, 64, NULL, 0);
+	if (prefix != NULL) {
+		blake2b_update (&bs, prefix, plen);
+	}
+	blake2b_update (&bs, sig, 32);
+	blake2b_update (&bs, A, 32);
+	blake2b_update (&bs, m, mlen);
+	blake2b_final (&bs, hram);
+	reduce (rhram, hram);
+
+	// x = r + H(RAM)a
+	Limbtype x[64];
+	for (unsigned i = 0; i < 32; ++i) {
+		x[i] = (Limbtype) r[i];
+	}
+	for (unsigned i = 32; i < 64; ++i) {
+		x[i] = 0;
+	}
+	for (unsigned i = 0; i < 32; ++i) {
+		for (unsigned j = 0; j < 32; ++j) {
+			x[i+j] += rhram[i] * (Limbtype) scalar[j];
+		}
+	}
+
+	// S = (r + H(RAM)a) mod L
+	modL (sig + 32, x);
+	// Store the sign bit.
+	sig[63] |= A[31] & 0x80;
+}
+
+
+
+
 // Order of the group.
 static const uint8_t order[32] = {
 	0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58,
@@ -1401,16 +1480,28 @@ static const uint8_t order[32] = {
 };
 
 
+// Verify the signature. The most significant bit of the signature is ored
+// with the most significant bit of mx before verifying.
 int verify_bmx (const char *prefix, const uint8_t *m, size_t mlen,
                 const uint8_t sig[64], const uint8_t mx[32])
 {
-	if (!gt_than (order, sig + 32)) {
+	uint8_t s[32];
+	memcpy (s, sig + 32, 32);
+	s[31] &= 0x7F;
+
+	uint8_t mxs[32];
+	memcpy (mxs, mx, 32);
+	mxs[31] |= sig[63] & 0x80;
+
+
+	// Do not allow values of S bigger than the order. Avoids malleability.
+	if (!gt_than (order, s)) {
 		return -1;
 	}
 
 	Edwards p;
 	// p = - mx
-	if (mx_to_edwards (p, mx) != 0) {
+	if (mxs_to_edwards (p, mxs, true) != 0) {
 		return -1;
 	}
 
@@ -1422,7 +1513,7 @@ int verify_bmx (const char *prefix, const uint8_t *m, size_t mlen,
 		blake2b_update (&bs, prefix, n + 1);    // Include terminating null to establish a unique prefix.
 	}
 	blake2b_update (&bs, sig, 32);
-	blake2b_update (&bs, mx, 32);
+	blake2b_update (&bs, mxs, 32);
 	blake2b_update (&bs, m, mlen);
 	blake2b_final (&bs, hram);
 
@@ -1431,12 +1522,11 @@ int verify_bmx (const char *prefix, const uint8_t *m, size_t mlen,
 
 	Edwards newr;
 	// R = SB - hA
-	scalarmult_wnaf (newr, sig + 32, p, rhram);
+	scalarmult_wnaf (newr, s, p, rhram);
 	uint8_t newrp[32];
-	edwards_to_ey (newrp, newr);
+	edwards_to_mxs (newrp, newr);
 	return crypto_neq (sig, newrp, 32);
 }
-
 
 
 void ed25519_seed_to_scalar (uint8_t scalar[32], const uint8_t seed[32])
@@ -1469,7 +1559,7 @@ void sign_sey (const uint8_t *m, size_t mlen,
 	// R = rB
 	Edwards R;
 	scalarbase (R, r);
-	edwards_to_ey (sig, R);
+	edwards_to_eys (sig, R);
 
 	// rhram = H(R,A,m)
 	hs.reset();
@@ -1499,26 +1589,15 @@ void sign_sey (const uint8_t *m, size_t mlen,
 
 
 int verify_sey (const uint8_t *m, size_t mlen, const uint8_t sig[64],
-                const uint8_t pub[32], bool edwards)
+                const uint8_t A[32])
 {
 	if (!gt_than (order, sig + 32)) {
 		return -1;
 	}
 
-	uint8_t A[32];
 	Edwards p;
-	if (edwards) {
-		if (ey_to_edwards (p, pub) != 0) {
-			return -1;
-		}
-		memcpy (A, pub, 32);
-	} else {
-		if (mx_to_edwards (p, pub) != 0) {
-			return -1;
-		}
-		// z is already 1 after the expansion.
-		reduce_store (A, p.y);
-		A[31] |= pub[31] & 0x80;
+	if (eys_to_edwards (p, A, true) != 0) {
+		return -1;
 	}
 
 	uint8_t hram[64];
@@ -1534,7 +1613,7 @@ int verify_sey (const uint8_t *m, size_t mlen, const uint8_t sig[64],
 	Edwards newr;
 	scalarmult_wnaf (newr, sig + 32, p, rhram);
 	uint8_t newrp[32];
-	edwards_to_ey (newrp, newr);
+	edwards_to_eys (newrp, newr);
 	return crypto_neq (sig, newrp, 32);
 }
 
@@ -1546,7 +1625,7 @@ void ed25519_seed_to_ey (uint8_t ey[32], const uint8_t seed[32])
 	mask_scalar (h);
 	Edwards e;
 	scalarbase (e, h);
-	edwards_to_ey (ey, e);
+	edwards_to_eys (ey, e);
 }
 
 
@@ -1594,7 +1673,7 @@ void sign_sha (const uint8_t *m, size_t mlen, const uint8_t A[32],
 	// R = rB
 	Edwards R;
 	scalarbase (R, r);
-	edwards_to_ey (sig, R);
+	edwards_to_eys (sig, R);
 
 	// rhram = H(R,A,m)
 	hs.reset();
@@ -1623,27 +1702,12 @@ void sign_sha (const uint8_t *m, size_t mlen, const uint8_t A[32],
 }
 
 
-void sign_conv (const uint8_t *m, size_t len, const uint8_t ey[32],
-                const uint8_t sc[32], uint8_t sig[64])
-{
-	if (ey[31] & 0x80) {
-		uint8_t ey0[32], ns[32];
-		memcpy (ey0, ey, 32);
-		ey0[31] &= 0x7F;
-		negate_scalar (ns, sc);
-		sign_sha (m, len, ey0, ns, sig);
-	} else {
-		sign_sha (m, len, ey, sc, sig);
-	}
-}
-
-
 
 
 // Pass as input xs, filled with random bytes. The function will adjust xs
 // and will compute xp and the corresponding representative.
 
-void cu25519_elligator2_gen (Cu25519Sec *xs, Cu25519Pub *xp, Cu25519Rep *rep)
+void cu25519_elligator2_gen (Cu25519Sec *xs, Cu25519Mon *xp, Cu25519Ell *rep)
 {
 	mask_scalar (xs->b);
 	Edwards e;
@@ -1668,7 +1732,7 @@ void cu25519_elligator2_gen (Cu25519Sec *xs, Cu25519Pub *xp, Cu25519Rep *rep)
 }
 
 
-void cu25519_elligator2_rev (Cu25519Pub *u, const Cu25519Rep & rep)
+void cu25519_elligator2_rev (Cu25519Mon *u, const Cu25519Ell & rep)
 {
 	Fe fr, fu;
 	load (fr, rep.b);
@@ -1686,6 +1750,653 @@ void cu25519_elligator2_rev (Cu25519Pub *u, const Cu25519Rep & rep)
 	reduce_store (u->b, fu);
 
 }
+
+
+// Same as Ed25519 sign but R is encoded as the Montgomery u.
+
+void curvesig (const char *prefix, const uint8_t *m, size_t mlen,
+               const uint8_t A[32], const uint8_t scalar[32], uint8_t sig[64])
+{
+	uint8_t hr[64], r[32], hram[64], rhram[32];
+
+	blake2b (hr, 32, scalar, 32, NULL, 0);
+
+	size_t plen;
+	blake2b_ctx bs;
+	blake2b_init (&bs, 64, NULL, 0);
+	if (prefix != NULL) {
+		plen = strlen (prefix) + 1;
+		blake2b_update (&bs, prefix, plen);
+	}
+	blake2b_update (&bs, hr, 32);
+	blake2b_update (&bs, m, mlen);
+	blake2b_final (&bs, hr);
+	reduce (r, hr);
+
+	// R = rB
+	Edwards p;
+	scalarbase (p, r);
+	Fe fu, fz;
+	add (fu, p.y, p.z);
+	sub (fz, p.z, p.y);
+	invert (fz, fz);
+	mul (fu, fu, fz);
+	reduce_store (sig, fu);
+
+	// rhram = H(R,A,m)
+	blake2b_init (&bs, 64, NULL, 0);
+	if (prefix != NULL) {
+		blake2b_update (&bs, prefix, plen);
+	}
+	blake2b_update (&bs, sig, 32);
+	blake2b_update (&bs, A, 32);
+	blake2b_update (&bs, m, mlen);
+	blake2b_final (&bs, hram);
+	reduce (rhram, hram);
+
+	// x = r + H(RAM)a
+	Limbtype x[64];
+	for (unsigned i = 0; i < 32; ++i) {
+		x[i] = (Limbtype) r[i];
+	}
+	for (unsigned i = 32; i < 64; ++i) {
+		x[i] = 0;
+	}
+	for (unsigned i = 0; i < 32; ++i) {
+		for (unsigned j = 0; j < 32; ++j) {
+			x[i+j] += rhram[i] * (Limbtype) scalar[j];
+		}
+	}
+
+	// S = (r + H(RAM)a) mod L
+	modL (sig + 32, x);
+}
+
+// Verify without Edwards arithmetic. See the paper "Fast and compact
+// elliptic curve cryptography" for a method to verify signatures without
+// performing point addition (see the appendix). We want to verify that
+/*            P1 = ±P2 ± P3   */
+// where the affine coordinates are u1, u2 and u3 and the projective
+// coordinates of P2 and P3 are U2/Z2, U3/Z3. The condition is:
+/*
+	4(u1 + u2 + u3 + A)(u1u2u3) = (1 - u1u2 - u2u3 - u3u1)²
+	4 (U1.Z2.Z3 + U2.Z1.Z3 + U3.Z1.Z2 + A.Z1.Z2.Z3) (U1.U2.U3) = (Z1.Z2.Z3 - U1.U2.Z3 - U2.U3.Z1 - U3.U1.Z2)²
+
+	given that Z1 == 1.
+
+	4 (U1.Z2.Z3 + U2.Z3 + U3.Z2 + A.Z2.Z3) (U1.U2.U3) = (Z2.Z3 - U1.U2.Z3 - U2.U3 - U3.U1.Z2)²
+
+	This scheme is also known as qDSA.
+*/
+
+int curverify_mont (const char *prefix, const uint8_t *m, size_t mlen,
+                    const uint8_t sig[64], const uint8_t mx[32])
+{
+	if (!gt_than (order, sig + 32)) {
+		return -1;
+	}
+
+	uint8_t hram[64];
+	blake2b_ctx bs;
+	blake2b_init (&bs, 64, NULL, 0);
+	size_t plen;
+	if (prefix != NULL) {
+		plen = strlen (prefix) + 1;
+		blake2b_update (&bs, prefix, plen);
+	}
+	blake2b_update (&bs, sig, 32);
+	blake2b_update (&bs, mx, 32);
+	blake2b_update (&bs, m, mlen);
+	blake2b_final (&bs, hram);
+
+	uint8_t rhram[32];
+	reduce (rhram, hram);
+
+	// R == ±SB ± hA
+	Fe fu1, fu2, fz2, fu3, fz3;
+	Fe tmp, s1, s2, femx;
+	static const Fe ubase = { 9 };
+	montgomery_ladder (fu2, fz2, ubase, sig + 32);
+	load (femx, mx);
+	montgomery_ladder (fu3, fz3, femx, rhram);
+	load (fu1, sig);
+
+	// We have computed sB and hA, which are in fu2/fz2 and fu3/fz3. Check if
+	// R == ±SB ± hA
+
+	Fe z2z3, u3z2, u1u2;
+	mul (z2z3, fz2, fz3);
+	mul (s1, z2z3, fu1);
+	mul (tmp, fu2, fz3);            add (s1, s1, tmp);
+	mul (u3z2, fu3, fz2);           add (s1, s1, u3z2);
+	mul_small (tmp, z2z3, 486662);  add (s1, s1, tmp);
+	mul (u1u2, fu1, fu2);
+	mul (s1, s1, u1u2);
+	mul (s1, s1, fu3);
+	mul_small (s1, s1, 4);
+
+	mul (s2, u1u2, fz3);
+	mul (tmp, fu2, fu3);
+	add (s2, s2, tmp);
+	mul (tmp, u3z2, fu1);
+	add (s2, s2, tmp);
+	sub (s2, z2z3, s2);
+	square (s2, s2);
+
+	sub (s1, s1, s2);
+
+	uint8_t res[32];
+	reduce_store (res, s1);
+
+	return !is_zero (res, 32);
+}
+
+int curverify (const char *prefix, const uint8_t *m, size_t mlen,
+               const uint8_t sig[64], const uint8_t mx[32])
+{
+	if (!gt_than (order, sig + 32)) {
+		return -1;
+	}
+
+	uint8_t hram[64];
+	blake2b_ctx bs;
+	blake2b_init (&bs, 64, NULL, 0);
+	size_t plen;
+	if (prefix != NULL) {
+		plen = strlen (prefix) + 1;
+		blake2b_update (&bs, prefix, plen);
+	}
+	blake2b_update (&bs, sig, 32);
+	blake2b_update (&bs, mx, 32);
+	blake2b_update (&bs, m, mlen);
+	blake2b_final (&bs, hram);
+
+	uint8_t rhram[32];
+	reduce (rhram, hram);
+
+	// R == ±SB ± hA
+	Fe fu1, fu2, fz2, fu3, fz3;
+	Fe tmp, s1, s2, femx;
+	Edwards sB;
+	scalarbase (sB, sig + 32);
+	// u = (Z + Y)/(Z - Y)
+	add (fu2, sB.z, sB.y);
+	sub (fz2, sB.z, sB.y);
+	load (femx, mx);
+	montgomery_ladder (fu3, fz3, femx, rhram);
+	load (fu1, sig);
+
+	// We have computed sB and hA, which are in fu2/fz2 and fu3/fz3. Check if
+	// R == ±SB ± hA
+
+	Fe z2z3, u3z2, u1u2;
+	mul (z2z3, fz2, fz3);
+	mul (s1, z2z3, fu1);
+	mul (tmp, fu2, fz3);            add (s1, s1, tmp);
+	mul (u3z2, fu3, fz2);           add (s1, s1, u3z2);
+	mul_small (tmp, z2z3, 486662);  add (s1, s1, tmp);
+	mul (u1u2, fu1, fu2);
+	mul (s1, s1, u1u2);
+	mul (s1, s1, fu3);
+	mul_small (s1, s1, 4);
+
+	mul (s2, u1u2, fz3);
+	mul (tmp, fu2, fu3);
+	add (s2, s2, tmp);
+	mul (tmp, u3z2, fu1);
+	add (s2, s2, tmp);
+	sub (s2, z2z3, s2);
+	square (s2, s2);
+
+	sub (s1, s1, s2);
+
+	uint8_t res[32];
+	reduce_store (res, s1);
+
+	return !is_zero (res, 32);
+}
+
+
+void cu25519_generate (Cu25519Sec *xs, Cu25519Mon *xp)
+{
+	Edwards e;
+	mask_scalar (xs->b);
+	scalarbase (e, xs->b);
+	edwards_to_mxs (xp->b, e);
+}
+
+void cu25519_generate (Cu25519Pair *pair)
+{
+	Edwards e;
+	mask_scalar (pair->xs.b);
+	scalarbase (e, pair->xs.b);
+	edwards_to_ristretto (pair->xp.b, e);
+}
+
+
+// Ristretto support.
+
+inline int ct_is_zero (const Fe &u)
+{
+	Fe v = u;
+	uint8_t d[32];
+	reduce_store (d, v);
+	return is_zero (d, 32);
+}
+inline int ct_is_negative (const Fe &u)
+{
+	Fe v = u;
+	uint8_t d[32];
+	reduce_store (d, v);
+	return d[0] & 1;
+}
+
+void edwards_to_ristretto (uint8_t s[32], const Edwards p)
+{
+	Fe u1, u2, isr;
+	add (u1, p.z, p.y);
+	sub (u2, p.z, p.y);
+	mul (u1, u1, u2);
+	mul (u2, p.x, p.y);
+
+	square (isr, u2);
+	mul (isr, isr, u1);
+	invsqrt (isr, isr);
+
+	Fe den1, den2, z_inv;
+	mul (den1, isr, u1);
+	mul (den2, isr, u2);
+	mul (z_inv, den1, den2);
+	mul (z_inv, z_inv, p.t);
+
+	Fe ix0, iy0;
+	mul (ix0, p.x, root_minus_1);
+	mul (iy0, p.y, root_minus_1);
+
+	Fe enden;
+	mul (enden, den1, invsqrt_a_minus_d);
+
+	Fe tmp;
+	mul (tmp, p.t, z_inv);
+	int rotate = ct_is_negative (tmp);
+	Fe x, y, z;
+	select (x, iy0, p.x, rotate);
+	select (y, ix0, p.y, rotate);
+	z = p.z;
+
+	Fe den_inv;
+	select (den_inv, enden, den2, rotate);
+
+	mul (tmp, x, z_inv);
+	int isneg = ct_is_negative (tmp);
+	negate (tmp, y);
+	select (y, tmp, y, isneg);
+
+	sub (tmp, z, y);
+	Fe spos, sneg;
+	mul (spos, tmp, den_inv);
+	negate (sneg, spos);
+	select (spos, sneg, spos, ct_is_negative (spos));
+
+	reduce_store (s, spos);
+}
+
+int ristretto_to_edwards (Edwards &res, const uint8_t sc[32])
+{
+	Fe s, ss, u1, u2, u2_sqr, v;
+	load (s, sc);
+	if (sc[0] & 1) return -1;
+
+	square (ss, s);
+	sub (u1, feone, ss);
+	add (u2, feone, ss);
+	square (u2_sqr, u2);
+
+	square (v, u1);
+	mul (v, v, edwards_d);
+	add (v, v, u2_sqr);
+	negate (v, v);
+
+	Fe insrt, vu22;
+	mul (vu22, v, u2_sqr);
+	int not_square = sqrt_ratio_m1 (insrt, feone, vu22);
+
+	Fe den_x, den_y;
+	mul (den_x, insrt, u2);
+	mul (den_y, insrt, den_x);
+	mul (den_y, den_y, v);
+
+	Fe xpos, xneg;
+	mul (xpos, s, den_x);
+	add (xpos, xpos, xpos);
+	negate (xneg, xpos);
+	select (res.x, xneg, xpos, ct_is_negative (xpos));
+
+	mul (res.y, u1, den_y);
+	mul (res.t, res.x, res.y);
+	res.z = feone;
+
+	uint8_t yr[32];
+	reduce_store (yr, res.y);
+	return not_square | ct_is_negative (res.t) | is_zero (yr, 32);
+}
+
+
+
+
+bool ristretto_equal (const Edwards &p1, const Edwards &p2)
+{
+	Fe t1, t2, t3;
+	mul (t1, p1.x, p2.y);
+	mul (t3, p1.y, p2.x);
+	sub (t1, t1, t3);
+
+	mul (t2, p1.y, p2.y);
+	mul (t3, p1.x, p2.x);
+	sub (t2, t2, t3);
+
+	int v = ct_is_zero (t1) | ct_is_zero (t2);
+	return v;
+}
+
+static void ristretto_map (Edwards &p, const Fe t)
+{
+	Fe r, u, v, c, tmp, s;
+
+	square (r, t);
+	mul (r, r, root_minus_1);
+	add (u, r, feone);
+	mul (u, u, one_minus_d_sq);
+	negate (c, feone);
+
+	mul (tmp, r, edwards_d);
+	sub (v, c, tmp);
+	add (tmp, r, edwards_d);
+	mul (v, v, tmp);
+
+	int not_square = sqrt_ratio_m1 (s, u, v);
+
+	Fe s_prime, spos, sneg;
+	mul (spos, s, t);
+	negate (sneg, spos);
+	select (s_prime, spos, sneg, ct_is_negative(spos));
+	select (s, s_prime, s, not_square);
+	select (c, r, c, not_square);
+
+	Fe N;
+	sub (tmp, r, feone);
+	mul (tmp, tmp, c);
+	mul (tmp, tmp, d_minus_one_sq);
+	sub (N, tmp, v);
+
+	Fe w0, w1, w2, w3;
+	mul (w0, s, v);
+	add (w0, w0, w0);
+	mul (w1, N, sqrt_ad_minus_one);
+	square (tmp, s);
+	sub (w2, feone, tmp);
+	add (w3, feone, tmp);
+	mul (p.x, w0, w3);
+	mul (p.y, w2, w1);
+	mul (p.z, w1, w3);
+	mul (p.t, w0, w2);
+}
+
+void ristretto_from_uniform (Edwards &p, const uint8_t b[64])
+{
+	Fe r0, r1;
+	load (r0, b);
+	load (r1, b + 32);
+	Edwards p1, p2;
+	ristretto_map (p1, r0);
+	ristretto_map (p2, r1);
+	point_add (p, p1, p2);
+}
+
+void cu25519_sign (const char *prefix, const uint8_t *m, size_t mlen,
+                   const Cu25519Ris &A, const Cu25519Sec &scalar, uint8_t sig[64])
+{
+	uint8_t hr[64], r[32], hram[64], rhram[32];
+
+	blake2b (hr, 32, scalar.b, 32, NULL, 0);
+
+	size_t plen;
+	blake2b_ctx bs;
+	blake2b_init (&bs, 64, NULL, 0);
+	if (prefix != NULL) {
+		plen = strlen (prefix) + 1;
+		blake2b_update (&bs, prefix, plen); // Include the terminating null.
+	}
+	blake2b_update (&bs, hr, 32);
+	blake2b_update (&bs, m, mlen);
+	blake2b_final (&bs, hr);
+	reduce (r, hr);
+
+	// R = rB
+	Edwards R;
+	scalarbase (R, r);
+	edwards_to_ristretto (sig, R);
+
+	// rhram = H(R,A,m)
+	blake2b_init (&bs, 64, NULL, 0);
+	if (prefix != NULL) {
+		blake2b_update (&bs, prefix, plen);
+	}
+	blake2b_update (&bs, sig, 32);
+	blake2b_update (&bs, A.b, 32);
+	blake2b_update (&bs, m, mlen);
+	blake2b_final (&bs, hram);
+	reduce (rhram, hram);
+
+	// x = r + H(RAM)a
+	Limbtype x[64];
+	for (unsigned i = 0; i < 32; ++i) {
+		x[i] = (Limbtype) r[i];
+	}
+	for (unsigned i = 32; i < 64; ++i) {
+		x[i] = 0;
+	}
+	for (unsigned i = 0; i < 32; ++i) {
+		for (unsigned j = 0; j < 32; ++j) {
+			x[i+j] += rhram[i] * (Limbtype) scalar.b[j];
+		}
+	}
+
+	// S = (r + H(RAM)a) mod L
+	modL (sig + 32, x);
+}
+
+int cu25519_verify (const char *prefix, const uint8_t *m, size_t mlen,
+                    const uint8_t sig[64], const Cu25519Ris &A)
+{
+	if (!gt_than (order, sig + 32)) {
+		return -1;
+	}
+
+	Edwards p;
+	// p = - A
+	if (ristretto_to_edwards (p, A.b) != 0) {
+		return -1;
+	}
+	negate (p, p);
+
+	uint8_t hram[64];
+	blake2b_ctx bs;
+	blake2b_init (&bs, 64, NULL, 0);
+	if (prefix != NULL) {
+		size_t n = strlen (prefix);
+		blake2b_update (&bs, prefix, n + 1);    // Include terminating null to establish a unique prefix.
+	}
+	blake2b_update (&bs, sig, 32);
+	blake2b_update (&bs, A.b, 32);
+	blake2b_update (&bs, m, mlen);
+	blake2b_final (&bs, hram);
+
+	uint8_t rhram[32];
+	reduce (rhram, hram);
+
+	Edwards newr;
+	// R = SB - hA
+	scalarmult_wnaf (newr, sig + 32, p, rhram);
+	uint8_t newrp[32];
+	edwards_to_ristretto (newrp, newr);
+
+	return crypto_neq (sig, newrp, 32);
+}
+
+void cu25519_generate_no_mask (const Cu25519Sec &scalar, Cu25519Ris *ris)
+{
+	Edwards p;
+	scalarbase (p, scalar.b);
+	edwards_to_ristretto (ris->b, p);
+}
+void cu25519_generate (Cu25519Sec *scalar, Cu25519Ris *ris)
+{
+	Edwards p;
+	mask_scalar (scalar->b);
+	scalarbase (p, scalar->b);
+	edwards_to_ristretto (ris->b, p);
+}
+
+// From the decaf paper. Use u = s² as input to the ladder. Then clear the
+// cofactor (done implicitly by requiring that scalar is a multiple of 8).
+static int ristretto_ladder_imp (uint8_t res[32], const Cu25519Ris &A, const uint8_t scalar[32], int startbit=254)
+{
+	// s must be even for valid ristretto encodings.
+	if (A.b[0] & 1) return -1;
+	Fe s2;
+	load (s2, A.b);
+	square (s2, s2);
+	Fe fu, fz;
+	montgomery_ladder (fu, fz, s2, scalar, startbit);
+	uint8_t scu[32], scz[32];
+	reduce_store (scu, fu);
+	reduce_store (scz, fz);
+	if (is_zero (scu, 32) || is_zero (scz, 32)) {
+		return -1;
+	}
+	Fe fres;
+	if (sqrt_ratio_m1 (fres, fu, fz) != 0) {
+		return -1;
+	}
+	square (fres, fres);
+	reduce_store (res, fres);
+	return 0;
+}
+
+int cu25519_shared_secret (uint8_t res[32], const Cu25519Ris &A, const Cu25519Sec &scalar)
+{
+	return ristretto_ladder_imp (res, A, scalar.b);
+}
+
+inline void shift8_scalar (uint8_t newsc[33], const uint8_t oldsc[32])
+{
+	int bits = 0;
+	for (int i = 0; i < 32; ++i) {
+		bits = (bits & 0x7) | (int(oldsc[i]) << 3);
+		newsc[i] = bits;
+		bits >>= 8;
+	}
+	newsc[32] = bits;
+}
+
+// Works with any scalar. If first multiplies the scalar by 8.
+int cu25519_shared_secret_cof (uint8_t res[32], const Cu25519Ris &A, const Cu25519Sec &scalar)
+{
+	uint8_t nsc[33];
+	shift8_scalar (nsc, scalar.b);
+	// Given the input with 256 bits we now have 259 bits of scalar. The
+	// actual ladder routine works with any number of bits.
+	return ristretto_ladder_imp (res, A, nsc, 258);
+}
+
+
+// Verify a ristretto signature using qdsa, no montgomery.
+int ristretto_qdsa_verify (const char *prefix, const uint8_t *m, size_t mlen,
+                           const uint8_t sig[64], const Cu25519Ris &A)
+{
+	if (!gt_than (order, sig + 32)) {
+		return -1;
+	}
+
+	uint8_t hram[64];
+	blake2b_ctx bs;
+	blake2b_init (&bs, 64, NULL, 0);
+	if (prefix != NULL) {
+		size_t n = strlen (prefix);
+		blake2b_update (&bs, prefix, n + 1);    // Include terminating null to establish a unique prefix.
+	}
+	blake2b_update (&bs, sig, 32);
+	blake2b_update (&bs, A.b, 32);
+	blake2b_update (&bs, m, mlen);
+	blake2b_final (&bs, hram);
+
+	uint8_t rhram[32];
+	reduce (rhram, hram);
+
+	// We shall check 8R == ±8SB ± 8hA
+
+	// Multiply the scalars by eight. They still fit in 256 bits because they
+	// were < group order.
+	uint8_t r8[33], s8[33];
+	shift8_scalar (r8, rhram);
+	shift8_scalar (s8, sig + 32);
+
+	Fe fau, fu1, fz1, fu2, fz2, fu3, fz3;
+	load (fau, A.b);
+	square (fau, fau);
+	montgomery_ladder (fu2, fz2, fau, r8);
+	static const Fe fmb = { 9 };
+	montgomery_ladder (fu3, fz3, fmb, s8);
+
+	uint8_t sc8 = 8;
+	Fe fr;
+	load (fr, sig);
+	square (fr, fr);
+	montgomery_ladder (fu1, fz1, fr, &sc8, 3);
+
+	// Check that u1/z1 = ±u2/z2 ± u3/z3
+
+	// 4 (U1.Z2.Z3 + U2.Z1.Z3 + U3.Z1.Z2 + A.Z1.Z2.Z3) (U1.U2.U3) =
+	//    (Z1.Z2.Z3 - U1.U2.Z3 - U2.U3.Z1 - U3.U1.Z2)²
+
+	Fe tmp1, tmp2, tmp3, u1z2, u2z1, u3z1, z1z2z3, u1u2;
+	mul (u1z2, fu1, fz2);
+	mul (tmp1, u1z2, fz3);
+
+	mul (u2z1, fu2, fz1);
+	mul (tmp2, u2z1, fz3);
+	add_no_reduce (tmp1, tmp1, tmp2);
+
+	mul (u3z1, fu3, fz1);
+	mul (tmp2, u3z1, fz2);
+	add_no_reduce (tmp1, tmp1, tmp2);
+
+	mul (z1z2z3, fz1, fz2);
+	mul (z1z2z3, z1z2z3, fz3);
+	mul_small (tmp2, z1z2z3, 486662);
+	add_no_reduce (tmp1, tmp1, tmp2);
+
+	mul (u1u2, fu1, fu2);
+	mul (tmp1, tmp1, u1u2);
+	mul (tmp1, tmp1, fu3);
+	add_no_reduce (tmp1, tmp1, tmp1);
+	add_no_reduce (tmp1, tmp1, tmp1);
+
+	mul (tmp2, u1u2, fz3);
+	mul (tmp3, u3z1, fu2);
+	add_no_reduce (tmp2, tmp2, tmp3);
+	mul (tmp3, u1z2, fu3);
+	add_no_reduce (tmp2, tmp2, tmp3);
+	sub (tmp2, z1z2z3, tmp2);
+	square (tmp2, tmp2);
+
+	sub (tmp1, tmp1, tmp2);
+	uint8_t res[32];
+	reduce_store (res, tmp1);
+	return !is_zero (res, 32);
+}
+
 
 
 }}

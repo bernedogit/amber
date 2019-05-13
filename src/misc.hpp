@@ -48,6 +48,10 @@
 
 // Read little endian values from unaligned storage. GCC optimizes this to
 // just a single load.
+inline uint16_t leget16 (const void *vp)
+{
+	return uint16_t(((uint8_t*)vp)[1]) << 8 | ((uint8_t*)vp)[0];
+}
 inline uint32_t leget32 (const void *vp)
 {
 	return (uint32_t(((uint8_t*)vp)[3]) << 24) |
@@ -117,6 +121,11 @@ inline void leput32 (void *dest, uint32_t value)
 	memcpy (dest, &value, sizeof (uint32_t));
 }
 
+inline void leput16 (void *dest, uint16_t value)
+{
+	((uint8_t*)dest)[0] = value & 0xFF;
+	((uint8_t*)dest)[1] = value >> 8;
+}
 
 
 
@@ -231,6 +240,8 @@ void show_block(std::ostream &os, const char *label, const void *b,
 EXPORTFN
 void write_block(std::string &dst, const void *b, size_t nbytes);
 
+// Read from in and store in dst. Store in *next the pointer to the next non
+// hex character in in (may be the terminating null). It skips spaces.
 EXPORTFN
 ptrdiff_t read_block(const char *in, const char **next,
                      std::vector<uint8_t> &dst);
@@ -248,6 +259,41 @@ void get_password(const char *prompt, std::string &pass);
 EXPORTFN
 uint_fast32_t update_crc32(const void *buf, size_t nbytes,
                            uint_fast32_t crc=0);
+
+// Write u in LEB128 format to buf. Return the number of bytes written.
+EXPORTFN size_t    write_uleb (uint64_t u, uint8_t *buf);
+// Read a LEB128 from sbuf up to lim bytes and store it in *u. Return the
+// number of bytes read or -1 if there was an error.
+EXPORTFN ptrdiff_t read_uleb (uint64_t *u, const uint8_t *sbuf, size_t lim=10);
+
+
+// Conversion between signed and unsigned forms.
+inline uint64_t i64tozigzag (int64_t i)
+{
+	enum { scount = 64 - 1 };
+	return  (i << 1) ^ (i >> scount);
+}
+
+inline int64_t zigzagtoi64 (uint64_t u)
+{
+	int64_t sbit = u & 1;
+	return int64_t(u >> 1) ^ (-sbit);
+}
+
+inline uint32_t i32tozigzag (int32_t i)
+{
+	enum { scount = 32 - 1 };
+	return  (i << 1) ^ (i >> scount);
+}
+
+inline int32_t zigzagtoi32 (uint32_t u)
+{
+	int32_t sbit = u & 1;
+	return int32_t(u >> 1) ^ (-sbit);
+}
+
+
+
 
 }}
 

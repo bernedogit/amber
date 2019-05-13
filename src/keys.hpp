@@ -39,8 +39,8 @@ namespace amber {   namespace AMBER_SONAME {
 // A signature information. Signer is the public key of the signer. Signature
 // is the actual signature.
 struct Signature {
-	Cu25519Pub     signer;
-	uint8_t        signature[64];
+	Cu25519Ris   signer;
+	uint8_t      signature[64];
 };
 
 
@@ -237,14 +237,14 @@ int remove_signature (Key_list &kl, const char *signer,
 					  const std::vector<std::string> &selnames);
 
 // Return the key if found. NULL otherwise.
-EXPORTFN const Key * find_key(const Key_list &kl, const Cu25519Pub &pub);
+EXPORTFN const Key * find_key(const Key_list &kl, const Cu25519Ris &pub);
 
 // Provide the name corresponding to the key. If the pub key can be found in
 // the list kl then set name to the name of the key. In addition always
 // append to the resulting name the raw value of pub encoded using the
 // encoding kenc.
 EXPORTFN
-void find_key_name (const Key_list &kl, const Cu25519Pub &pub, 
+void find_key_name (const Key_list &kl, const Cu25519Ris &pub, 
 					std::string &name, Key_encoding kenc=key58);
 
 EXPORTFN

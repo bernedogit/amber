@@ -36,7 +36,7 @@ using namespace amber;
 struct How {
 	std::string pass;
 	Cu25519Pair tx, rx;
-	Cu25519Pub rx2p;
+	Cu25519Mon rx2p;
 	bool pub;
 };
 
@@ -48,7 +48,7 @@ void test_random_read(int n, const How &how )
 	std::ofstream pos(pos_name, pos.binary);
 	amber::ofstream cos;
 	if (how.pub) {
-		std::vector<amber::Cu25519Pub> rxv;
+		std::vector<amber::Cu25519Mon> rxv;
 		rxv.push_back(how.rx.xp);
 		rxv.push_back(how.rx2p);
 		cos.open(cos_name, how.tx, rxv);
@@ -73,7 +73,7 @@ void test_random_read(int n, const How &how )
 	std::ifstream pis(pos_name, pis.binary);
 	amber::ifstream cis;
 	if (how.pub) {
-		amber::Cu25519Pub txp;
+		amber::Cu25519Mon txp;
 		int nrx;
 		cis.open(cos_name, how.rx, &txp, &nrx);
 	} else {
@@ -139,7 +139,7 @@ void test_random_write(int n, const How &how)
 	amber::ofstream cos;
 
 	if (how.pub) {
-		std::vector<amber::Cu25519Pub> rxv;
+		std::vector<amber::Cu25519Mon> rxv;
 		rxv.push_back (how.rx.xp);
 		rxv.push_back (how.rx2p);
 		cos.open (cos_name, how.tx, rxv);
@@ -173,7 +173,7 @@ void test_random_write(int n, const How &how)
 	std::ifstream pis(pos_name, pis.binary);
 	amber::ifstream cis;
 	if (how.pub) {
-		amber::Cu25519Pub txp;
+		amber::Cu25519Mon txp;
 		int nrx;
 		cis.open(cos_name, how.rx, &txp, &nrx);
 	} else {

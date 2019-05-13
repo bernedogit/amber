@@ -236,6 +236,47 @@ void test_hchacha ()
 	format (std::cout, "HChaCha20 tested\n");
 }
 
+
+void test_packets()
+{
+	enum { msglen = 3 };
+
+	uint8_t pt[msglen], ct[msglen + 300], dec[msglen * 2];
+	int vals[] = { 0, 1, 63, 64, 127, 128, 0xFFFFFFF };
+	Chakey key;
+
+	for (unsigned i = 0; i < msglen; ++i) pt[i] = i;
+	load (&key, pt);
+
+	for (unsigned i = 0; i < sizeof(vals)/sizeof(vals[0]); ++i) {
+		size_t n = encrypt_packet (ct, pt, msglen, vals[i], 50, key, i);
+		uint64_t uval;
+		int err = peek_head (&uval, ct, key, i);
+		if (err != 0) {
+			std::cout << "Error decrypting the uval\n";
+		}
+		if (uval != (uint64_t)vals[i]) {
+			std::cout << "encrypted val=" << vals[i] << " but decrypted " << uval << '\n';
+		}
+		size_t decmlen;
+		err = decrypt_packet (dec, &decmlen, &uval, ct, n, 50, key, i);
+		if (err != 0) {
+			std::cout << "could not decrypt the packet\n";
+		} else {
+			if (decmlen != msglen) {
+				std::cout << "error in decrypt_packet, decmlen=" << decmlen << "  msglen=" << msglen << '\n';
+			}
+			if (uval != (uint64_t)vals[i]) {
+				std::cout << "error in decrypt_packet, uval=" << uval << "  expected=" << vals[i] << '\n';
+			}
+			if (memcmp (dec, pt, msglen) != 0) {
+				std::cout << "Wrong message decoded\n";
+			}
+		}
+	}
+}
+
+
 int main()
 {
 	enum { num_vecs = sizeof(chv)/sizeof(chv[0]) };
@@ -246,6 +287,7 @@ int main()
 
 	test (ccc[0]);
 	test_hchacha();
+	test_packets();
 }
 
 

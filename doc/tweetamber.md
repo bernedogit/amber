@@ -5,12 +5,28 @@ Similar to Tweet NaCl, Tweet Amber is an exercise in producing a more compact
 version of the full amber suite. It includes just the functions needed for 
 secret and public key encryption together with signatures. The algorithms and 
 implementations are the same as Amber except for the scalar base 
-multiplication. Amber uses precomputed multiples of the base. Tweet Amber 
-uses the Montgomery ladder for this purpose. This provides for a more compact 
-source code at the cost of longer times for key generation and signing. The 
-time required for key generation and signing is a bit more than twice the 
-time required by the corresponding Amber functions. All other times are 
-identical in both implementations.
+multiplication and signature verification. Amber uses precomputed multiples 
+of the base. Tweet Amber uses the Montgomery ladder for this purpose. This 
+provides for a more compact source code at the cost of longer times for key
+generation and signing. The time required for key generation and signing is a
+bit more than twice the time required by the corresponding Amber functions.
+
+The signature verification is done in Amber with the equation R = sB - hA, 
+where the point A (the public key of the signer is first decompressed). 
+Tweetamber uses the qDSA verification equation: 8R == ±8SB ± 8hA. The 8 is 
+due to the need to clear the cofactor. We use the Montgomery ladder to 
+compute both sB and hA. We start the ladder of hA with the square of the 
+Ristretto encoding instead of its inverse: this has a differenet small order 
+component. Therefore we clear this component by multiplying everything by the 
+cofactor. Any valid signature that is accepted by Amber will also be accepted 
+by Tweetamber. For each valid signature accepted by Amber, Tweetamber will 
+also accept the corresponding R, -s pair as valid. This is not a problem for 
+the security of the actual signatures because finding a valid -s is as hard 
+as finding a valid s. However it may confuse some protocols that expect non 
+malleable signatures. If you need non malleable signatures use Ristretto with 
+Amber.
+
+All other times are identical in both implementations.
 
 The following functions are provided.
 
@@ -144,43 +160,43 @@ This will mask the scalar in *scb* according to the requirements of X25519.
 It will set the most significant bit and make the scalar a multiple of the
 cofactor.
 
-	void cu25519_generate (Cu25519Sec *xs, Cu25519Pub *xp);
+	void cu25519_generate (Cu25519Sec *xs, Cu25519Ris *xp);
+	void cu25519_generate (Cu25519Sec *xs, Cu25519Mon *xp);
+
 
 Fill *xs.b* with random bytes and call this function. It will properly mask *xs* and
 will compute the corresponding public key and store it in *xp*.
 
-	void cu25519_shared_key (Chakey *k, const Cu25519Pub &xp, const Cu25519Sec &xs);
 
-Compute the secret shared by the keys *xp* and *xs* and hash it. Store the result in *k*.
+	void cu25519_shared_secret (uint8_t sh[32], const Cu25519Ris &xp, const Cu25519Sec &xs);
+	void cu25519_shared_secret (uint8_t sh[32], const Cu25519Mon &xp, const Cu25519Sec &xs);
 
-	void cu25519_shared_key (uint8_t sh[32], const Cu25519Pub &xp, const Cu25519Sec &xs);
-
-Same as above but store it as bytes in *sh*.
+Compute the secret shared by the two keys.
 
 	void cu25519_sign (const char *prefix, const uint8_t *m, size_t mlen,
-	                   const Cu25519Pub &xp, const Cu25519Sec &xs, uint8_t sig[64]);
+	                   const Cu25519Ris &xp, const Cu25519Sec &xs, uint8_t sig[64]);
 
-Sign the message stored in *m* of length *mlen* with the key pair *xp* and 
-*xs* and store the signature in *sig*. The prefix is used to differentiate 
-different signing contexts. It is just a null terminated string. Pass prefix 
+Sign the message stored in *m* of length *mlen* with the key pair *xp* and
+*xs* and store the signature in *sig*. The prefix is used to differentiate
+different signing contexts. It is just a null terminated string. Pass prefix
 == NULL if you do not want any context.
 
 	int cu25519_verify (const char *prefix, const uint8_t *m, size_t mlen,
-	                    const uint8_t sig[64], const Cu25519Pub &xp);
+	                    const uint8_t sig[64], const Cu25519Ris &xp);
 
 Verify that the signature stored in *sig* corresponds to the message stored
 in *m* of length *mlen* and was produced with the private key corresponding
-to *xp*. It returns 0 if the signature is correct. The prefix is the same as the one
-passed to the signing function.
+to *xp*. It returns 0 if the signature is correct. The prefix is the same as
+the one passed to the signing function.
 
-	void cu25519_elligator2_gen (Cu25519Sec *xs, Cu25519Pub *xp, Cu25519Rep *rep);
+	void cu25519_elligator2_gen (Cu25519Sec *xs, Cu25519Mon *xp, Cu25519Rep *rep);
 
 Compute a public key and its elligator representative. Fill *xs* with random
 bytes and call this function. It will adjust *xs* and will store in *xp* the
 corresponding public key and in *rep* the corresponding representative. Note
 that this key can be used only for DH and not for signing.
 
-	void cu25519_elligator2_rev (Cu25519Pub *u, const Cu25519Rep & rep);
+	void cu25519_elligator2_rev (Cu25519Mon *u, const Cu25519Rep & rep);
 
 Compute the public key corresponding to the Elligator 2 representative *rep*.
 Store the result in *u*.

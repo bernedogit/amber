@@ -321,7 +321,7 @@ void sym_pack (const char *oname, int nf, char **files, std::string &password,
 void pub_pack (const char *oname, int nf, char **files, const Key &sender,
                const Key_list &rx, int bs, int bf, bool compress, bool verbose, bool spoof)
 {
-	std::vector<Cu25519Pub> curx(rx.size());
+	std::vector<Cu25519Ris> curx(rx.size());
 	for (unsigned i = 0; i < rx.size(); ++i) curx[i] = rx[i].pair.xp;
 	amber::ofstream os;
 	if (spoof) {
@@ -444,7 +444,7 @@ void sym_pack_list (const char *iname, std::string &password, int shifts_max)
 }
 
 
-void pub_pack_list (const char *iname, const Key &rx, Cu25519Pub *sender, int *nrx)
+void pub_pack_list (const char *iname, const Key &rx, Cu25519Ris *sender, int *nrx)
 {
 	amber::ifstream is(iname, rx.pair, sender, nrx);
 	if (!is) {
@@ -607,7 +607,7 @@ void sym_unpack (const char *packed, int nf, char **files,
 
 
 void pub_unpack (const char *packed, int nf, char **files, const Key &rx,
-                 Cu25519Pub *sender, int *nrx, bool verbose, bool console)
+                 Cu25519Ris *sender, int *nrx, bool verbose, bool console)
 {
 	amber::ifstream is(packed, rx.pair, sender, nrx);
 	if (!is) {
@@ -659,7 +659,7 @@ void sym_unpack_all(const char *packed, std::string &password, bool verbose,
 
 
 void pub_unpack_all (const char *packed, const Key &rx,
-                 Cu25519Pub *sender, int *nrx, bool verbose, bool console)
+                 Cu25519Ris *sender, int *nrx, bool verbose, bool console)
 {
 	amber::ifstream is(packed, rx.pair, sender, nrx);
 	if (!is) {

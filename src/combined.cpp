@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 Pelayo Bernedo.
+/* Copyright (c) 2015-2019 Pelayo Bernedo.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -166,7 +166,7 @@ void pub_encrypt(const char *iname, const char *oname, const Key &sender,
 		if (!sender.secret_avail) {
 			throw_rte(_("The sender padlock has no private key."));
 		}
-		std::vector<Cu25519Pub> curx(rx.size());
+		std::vector<Cu25519Ris> curx(rx.size());
 		for (unsigned i = 0; i < rx.size(); ++i) curx[i] = rx[i].pair.xp;
 		amber::ofstream os(oname, sender.pair, curx, bs, bf);
 		if (!os) {
@@ -200,7 +200,7 @@ void pub_encrypt(const char *iname, const char *oname, const Key &sender,
 
 
 void pub_decrypt (const char *iname, const char *oname, const Key &rx,
-                  Cu25519Pub &sender, int *nrx, bool verbose)
+                  Cu25519Ris &sender, int *nrx, bool verbose)
 {
 	try {
 		if (!rx.secret_avail) {
@@ -455,7 +455,7 @@ static void add_certs_to_hash (Blake2b *bl, const Key &key)
 	}
 }
 
-void sign_file(const char *iname, const char *oname, const Key &signer, const char *comment, bool b64, bool add_certs)
+void sign_file (const char *iname, const char *oname, const Key &signer, const char *comment, bool b64, bool add_certs)
 {
 	try {
 		if (!signer.secret_avail) {
@@ -490,7 +490,7 @@ void sign_file(const char *iname, const char *oname, const Key &signer, const ch
 		unsigned char bh[64];
 		bl.final (bh);
 		uint8_t sig[64];
-		cu25519_sign (sig_prefix, bh, 64, signer.pair, sig);
+		cu25519_sign (sig_prefix, bh, 64, signer.pair.xp, signer.pair.xs, sig);
 
 		Protobuf_writer pw (NULL, pw.seek, 0xFFFFFF);
 
@@ -518,7 +518,7 @@ void sign_file(const char *iname, const char *oname, const Key &signer, const ch
 
 
 
-int verify_file(const char *iname, const char *sname, Key &signer, std::string *comment, time_t *date, bool b64)
+int verify_file (const char *iname, const char *sname, Key &signer, std::string *comment, time_t *date, bool b64)
 {
 	try {
 		std::ifstream is(iname, is.binary);
@@ -656,7 +656,7 @@ void clear_sign(const char *iname, const char *oname, const Key &signer, const c
 		bl.final (bh);
 
 		uint8_t sig[64];
-		cu25519_sign (sig_prefix, bh, 64, signer.pair, sig);
+		cu25519_sign (sig_prefix, bh, 64, signer.pair.xp, signer.pair.xs, sig);
 		Protobuf_writer pw (NULL, pw.seek, 50000);
 		write_signature (pw, signer, sig, comment, now, add_certs);
 		os << sig_begin << '\n';
@@ -784,7 +784,7 @@ void clear_sign_again(const char *name, const Key &signer, const char *comment, 
 			}
 
 			uint8_t sig[64];
-			cu25519_sign (sig_prefix, bh, 64, signer.pair, sig);
+			cu25519_sign (sig_prefix, bh, 64, signer.pair.xp, signer.pair.xs, sig);
 
 			Protobuf_writer pw (NULL, pw.seek, 50000);
 			write_signature (pw, signer, sig, comment, now, add_certs);

@@ -291,6 +291,49 @@ public:
 EXPORTFN
 void randombytes_buf (void *p, size_t n);
 
+
+
+
+// Same as encrypt_multi() but the plaintext is made of an unsigned integer
+// (encoded as variable length integer) followed by the message followed by
+// padding bytes.
+
+EXPORTFN
+size_t encrypt_packet (uint8_t *ct, const uint8_t *m, size_t mlen,
+                       uint64_t uval, size_t padlen,
+                       const Chakey &ke, uint64_t nonce,
+                       const Chakey *ka, size_t nka,
+                       const uint8_t *ad = nullptr, size_t alen = 0);
+
+inline
+size_t encrypt_packet (uint8_t *ct, const uint8_t *m, size_t mlen,
+                       uint64_t uval, size_t padlen,
+                       const Chakey &ke, uint64_t nonce,
+                       const uint8_t *ad = nullptr, size_t alen = 0) {
+	return encrypt_packet (ct, m, mlen, uval, padlen, ke, nonce, &ke, 1, ad, alen);
+}
+
+
+// Decrypt the packet removing padding.
+EXPORTFN
+int decrypt_packet (uint8_t *m, size_t *msglen, uint64_t *u,
+                    const uint8_t *cipher, size_t clen, size_t padlen,
+                    const Chakey &ke, uint64_t nonce,
+                    const Chakey *ka, size_t nka, size_t ika,
+                    const uint8_t *ad=nullptr, size_t alen=0);
+inline
+int decrypt_packet (uint8_t *m, size_t *msglen, uint64_t *u,
+                    const uint8_t *cipher, size_t clen, size_t padlen,
+                    const Chakey &ke, uint64_t nonce) {
+	return decrypt_packet (m, msglen, u, cipher, clen, padlen, ke, nonce, &ke, 1, 0);
+}
+
+// Decrypt the unsigned integer at the beginning of the packet. This value is
+// not authenticated. It should be considered as a preview only to be
+// confirmed when the whole packet is decrypted and authenticated.
+EXPORTFN
+int peek_head (uint64_t *uval, const uint8_t ct[10], const Chakey &ke, uint64_t nonce);
+
 }}
 
 #endif

@@ -37,6 +37,7 @@
 #include <iomanip>
 #include <sstream>
 
+
 #ifndef _WIN32
 #include <unistd.h>
 #endif
@@ -487,13 +488,13 @@ ptrdiff_t read_block(const char *in, const char **next, std::vector<uint8_t> &ds
 	dst.clear();
 	unsigned char val;
 	int xval;
-	size_t count = 0;
+	size_t res = 0;
 	while (*in) {
 		while (isspace(*in)) ++in;
 		xval = hexval(*in++);
 		if (xval == -1) {
 			*next = in - 1;
-			return count;
+			return res;
 		}
 		val = xval << 4;
 		while (isspace(*in)) ++in;
@@ -503,7 +504,7 @@ ptrdiff_t read_block(const char *in, const char **next, std::vector<uint8_t> &ds
 		dst.push_back(val);
 	}
 	*next = in;
-	return count;
+	return res;
 }
 
 #ifdef _WIN32
@@ -679,6 +680,58 @@ uint_fast32_t update_crc32(const void *buf, size_t nbytes, uint_fast32_t crc)
 		crc = crc_table[(crc ^ *bytes++) & 0xff] ^ (crc >> 8);
 	}
 	return crc ^ 0xffffffffL;
+}
+
+
+// Write an unsigned 64 bit value in LEB128 format. Up to 10 bytes required.
+size_t write_uleb (uint64_t u, uint8_t *buf)
+{
+	uint8_t lb;
+	uint8_t *wp = buf;
+
+	lb = u & 0x7F;
+	u >>= 7;
+
+	while (u) {
+		*wp++ = lb | 0x80;
+		lb = u & 0x7F;
+		u >>= 7;
+	}
+	*wp++ = lb;
+
+	return wp - buf;
+}
+
+// Read a LEB128 from sbuf[0..lim[ and store the value in u. Return the
+// number of bytes read or -1 if there was an error.
+ptrdiff_t read_uleb (uint64_t *u, const uint8_t *buf, size_t lim)
+{
+	if (lim > 10) lim = 10;
+
+	uint64_t val = 0;
+	unsigned shifts = 0;
+	unsigned count = 0;
+	unsigned llim = lim > 9 ? 9 : lim;
+	uint8_t ch;
+
+	while (count < llim) {
+		ch = *buf++;
+		val |= uint64_t(ch & 0x7F) << shifts;
+		shifts += 7;
+		++count;
+		if ((ch & 0x80) == 0) {
+			*u = val;
+			return count;
+		}
+	}
+	if (count == 9 && lim > 9) {
+		if (ch <= 1) {
+			val |= uint64_t(ch) << shifts;
+			*u = val;
+			return 10;
+		}
+	}
+	return -1;
 }
 
 

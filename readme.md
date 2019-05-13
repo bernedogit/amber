@@ -64,7 +64,9 @@ there is a single algorithm for each function. We use:
 
  * Curve25519/X25519 and Elligator2 for public key encryption.
 
- * Ed25519 for signatures.
+ * Ed25519 and qDSA for signatures.
+
+ * Ristretto as the format for public keys.
 
  * ChaCha20 for secret key encryption.
 
@@ -93,23 +95,13 @@ following cryptographic properties are supported, which are not common in
 other libraries:
 
  * Public keys have 32 bytes and support both encryption and signature
-   verification. The public key stores the Montgomery X coordinate in the
-   first 255 bits and stores the sign bit of the Edwards X coordinate in the
-   last bit. This allows both encryption and signature verification using a
-   single 32-byte key. The implication is that you only need to distribute a
-   single 32-byte key. You do not need to have one X25519 key pair for
-   encryption and another Ed25519 key pair for signatures. One single Cu25519
-   key pair is enough.
-
-   There is no need to manage key ids and fingerprints like in PGP because
-   the key is short enough that it can be used as the ID. Note that due to
-   the direct decompression from Montgomery X coordinate to full extended
-   Edwards X and Y coordinates there is no loss of efficiency when using
-   Cu25519 keys for signatures. Signing and verifying signatures is as fast
-   with Cu25519 keys as with Ed25519 keys. Private keys are also 32 bytes
-   long and can be used both to decrypt and to sign. See
-   <https://moderncrypto.org/mail-archive/curves/2015/000376.html> for more
-   information about the key format.
+   verification. The public key stores the ristretto encoding of the point.
+   This allows both encryption and signature verification using a single
+   32-byte key. The implication is that you only need to distribute a single
+   32-byte key. You do not need to have one X25519 key pair for encryption
+   and another Ed25519 key pair for signatures. One single Ristretto key pair
+   is enough. There is no need to manage key ids and fingerprints like in PGP
+   because the key is short enough that it can be used as the ID.
 
  * The encrypted stream is made of packets that use sequential nonces plus
    additional authenticated data to authenticate the starting packet, middle

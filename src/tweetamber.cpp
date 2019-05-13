@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, P. Bernedo.
+ * Copyright (c) 2017-2019, P. Bernedo.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,7 +25,6 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
 #include "tweetamber.hpp"
 #include <stdexcept>
 #include <string.h>
@@ -34,6 +33,7 @@
 #include <stdint.h>
 #include <mutex>
 #include <limits.h>
+
 
 #if defined(__has_include)
 	#if __has_include("pthread.h")
@@ -1269,18 +1269,32 @@ void mix_key (uint8_t ck[32], const uint8_t *ikm, size_t n)
 }
 
 
+void encrypt_uint32 (uint8_t enc[4], const Chakey &ke, uint64_t nonce, uint32_t val)
+{
+	uint8_t stream[64];
+	chacha20 (stream, ke, nonce, 0);
+	uint8_t b[4];
+	leput32 (b, val);
+	for (unsigned i = 0; i < 4; ++i) enc[i] = b[i] ^ stream[32 + i];
+}
+
+uint32_t decrypt_uint32 (const uint8_t enc[4], const Chakey &ke, uint64_t nonce)
+{
+	uint8_t stream[64];
+	chacha20 (stream, ke, nonce, 0);
+	for (int i = 0; i < 4; ++i) stream[32 + i] ^= enc[i];
+	return leget32 (stream + 32);
+}
+
+
 
 // Curve25519
 
 struct Fe {
 	uint64_t v[5];
 };
-struct Edwards {
-	Fe x, y, z, t;
-	// x/z and y/z are the real coordinates. t/z = (x/z)*(y/z)
-};
 
-enum { fecount = 10 };
+enum { fecount = 5 };
 enum { mask25 = (1 << 25) - 1, mask26 = (1 << 26) - 1 };
 enum { mask51 = 0x7FFFFFFFFFFFF };
 
@@ -1298,7 +1312,6 @@ static const Fe p = { p0, mask51, mask51, mask51, mask51 };
 
 static const Fe fezero = { 0 };
 static const Fe feone = { 1 };
-static const Edwards edzero = { fezero, feone, feone, fezero };
 enum { A = 486662 };
 
 // d = -121665/121666
@@ -1316,14 +1329,6 @@ static const Fe root_minus_1 = { 0x61b274a0ea0b0, 0xd5a5fc8f189d, 0x7ef5e9cbd0c6
 // C = sqrt(-1)*sqrt(A+2)
 static const Fe C = { 0x1fb5500ba81e7, 0x5d6905cafa672, 0xec204e978b0, 0x4a216c27b91fe,
                       0x70d9120b9f5ff };
-
-// Base point. This is 9 in Montgomery.
-static const Edwards edwards_base = {
-	{ 0x62d608f25d51a, 0x412a4b4f6592a, 0x75b7171a4b31d, 0x1ff60527118fe, 0x216936d3cd6e5 },
-	{ 0x6666666666658, 0x4cccccccccccc, 0x1999999999999, 0x3333333333333, 0x6666666666666 },
-	{ 0x0000001, 0x0000000, 0x0000000, 0x0000000, 0x0000000 },
-	{ 0x68ab3a5b7dda3, 0xeea2a5eadbb, 0x2af8df483c27e, 0x332b375274732, 0x67875f0fd78b7 }
-};
 
 
 // Base point in Montgomery.
@@ -1402,6 +1407,106 @@ inline void sub (Fe &res, const Fe &a, const Fe &b)
 	c += four_mask51 + a.v[4] - b.v[4];     res.v[4] = c & mask51;  c >>= 51;
 	res.v[0] += c * 19;
 }
+
+#ifndef AMBER_LIMB_BITS
+	#if SIZE_MAX < 0xFFFFFFFFFFFFFFFF
+		#define AMBER_LIMB_BITS 32
+	#else
+		#if defined(__GNUC__)
+			#define AMBER_LIMB_BITS 128
+		#else
+			#define AMBER_LIMB_BITS 64
+		#endif
+	#endif
+#endif
+
+#if AMBER_LIMB_BITS == 128
+	typedef unsigned __int128 uint128_t;
+#endif
+
+#if AMBER_LIMB_BITS == 128
+
+// Use uint128_t for the result of multiplying two 64 bit limbs.
+
+// Multiply the number by a small number that fits in 32 bits.
+inline void mul_small (Fe &res, const Fe &a, uint32_t bs)
+{
+	uint128_t c, b = bs;
+	c  = a.v[0] * b;   res.v[0] = c & mask51;   c >>= 51;
+	c += a.v[1] * b;   res.v[1] = c & mask51;   c >>= 51;
+	c += a.v[2] * b;   res.v[2] = c & mask51;   c >>= 51;
+	c += a.v[3] * b;   res.v[3] = c & mask51;   c >>= 51;
+	c += a.v[4] * b;   res.v[4] = c & mask51;   c >>= 51;
+	c = res.v[0] + c * 19;      res.v[0] = c & mask51;   c >>= 51;
+	res.v[1] += c;
+}
+
+// 128 bit result.
+inline uint128_t mulw (uint64_t a, uint64_t b)
+{
+	return uint128_t(a) * uint128_t(b);
+}
+
+inline void mul (Fe &res, const Fe &f, const Fe &g)
+{
+	uint128_t h0, h1, h2, h3, h4;
+
+	h0 = mulw(f.v[0], g.v[0]) + 19 * (mulw(f.v[1], g.v[4]) +
+			mulw(f.v[2], g.v[3]) + mulw(f.v[3], g.v[2]) +
+			mulw(f.v[4], g.v[1]));
+	h1 = mulw(f.v[0], g.v[1]) + mulw(f.v[1], g.v[0]) + 19 * (
+			mulw(f.v[2], g.v[4]) + mulw(f.v[3], g.v[3]) +
+			mulw(f.v[4], g.v[2]));
+	h2 = mulw(f.v[0], g.v[2]) + mulw(f.v[1], g.v[1]) + mulw(f.v[2], g.v[0]) +
+			19 * (mulw(f.v[3], g.v[4]) + mulw(f.v[4], g.v[3]));
+	h3 = mulw(f.v[0], g.v[3]) + mulw(f.v[1], g.v[2]) + mulw(f.v[2], g.v[1]) +
+			mulw(f.v[3], g.v[0]) + 19 * mulw(f.v[4], g.v[4]);
+	h4 = mulw(f.v[0], g.v[4]) + mulw(f.v[1], g.v[3]) + mulw(f.v[2], g.v[2]) +
+			mulw(f.v[3], g.v[1]) + mulw(f.v[4], g.v[0]);
+
+	uint128_t c = h0;   res.v[0] = c & mask51;   c >>= 51;
+	c += h1;            res.v[1] = c & mask51;   c >>= 51;
+	c += h2;            res.v[2] = c & mask51;   c >>= 51;
+	c += h3;            res.v[3] = c & mask51;   c >>= 51;
+	c += h4;            res.v[4] = c & mask51;   c >>= 51;
+	c = res.v[0] + c * 19;      res.v[0] = c & mask51;   c >>= 51;
+	res.v[1] += c;
+}
+
+inline void square (Fe &res, const Fe &f)
+{
+	uint128_t h0, h1, h2, h3, h4;
+
+	uint128_t f0f1 = mulw (f.v[0], f.v[1]);
+	uint128_t f0f2 = mulw (f.v[0], f.v[2]);
+	uint128_t f0f3 = mulw (f.v[0], f.v[3]);
+	uint128_t f0f4 = mulw (f.v[0], f.v[4]);
+
+	uint128_t f1f2 = mulw (f.v[1], f.v[2]);
+	uint128_t f1f3 = mulw (f.v[1], f.v[3]);
+	uint128_t f1f4 = mulw (f.v[1], f.v[4]);
+
+	uint128_t f2f3 = mulw (f.v[2], f.v[3]);
+	uint128_t f2f4 = mulw (f.v[2], f.v[4]);
+
+	uint128_t f3f4 = mulw (f.v[3], f.v[4]);
+
+	h0 = mulw(f.v[0], f.v[0]) + 38 * (f1f4 + f2f3);
+	h1 = 2*f0f1 + 38*f2f4 + 19 * mulw(f.v[3], f.v[3]);
+	h2 = 2*f0f2 + mulw(f.v[1], f.v[1]) + 38*f3f4;
+	h3 = 2*(f0f3 + f1f2) + 19 * mulw(f.v[4], f.v[4]);
+	h4 = 2*(f0f4 + f1f3) + mulw(f.v[2], f.v[2]);
+
+	uint128_t c = h0;   res.v[0] = c & mask51;   c >>= 51;
+	c += h1;            res.v[1] = c & mask51;   c >>= 51;
+	c += h2;            res.v[2] = c & mask51;   c >>= 51;
+	c += h3;            res.v[3] = c & mask51;   c >>= 51;
+	c += h4;            res.v[4] = c & mask51;   c >>= 51;
+	c = res.v[0] + c * 19;      res.v[0] = c & mask51;   c >>= 51;
+	res.v[1] += c;
+}
+
+#else
 
 // 64 bit result.
 inline uint64_t mul (uint32_t a, uint32_t b)
@@ -1559,6 +1664,32 @@ inline void square (Fe &res, const Fe &f)
 }
 
 
+// We multiply two 64 bit limbs by decomposing them into two sublimbs with 25
+// and 26 bits each. This mimics the decomposition into 25/26 bit limbs for
+// the uint32_t representation.
+
+// Multiply the number by a small number that fits in 32 bits.
+inline void mul_small (Fe &res, const Fe &a, uint32_t bs)
+{
+	uint64_t c, b = bs;
+	uint64_t a0, a1, r0, r1;
+	c = 0;
+	for (int i = 0; i < 5; ++i) {
+		a0 = a.v[i] & mask26;
+		a1 = a.v[i] >> 26;
+		c += a0 * b;    r0 = c & mask26;     c >>= 26;
+		c += a1 * b;    r1 = c & mask25;     c >>= 25;
+		res.v[i] = (r1 << 26) | r0;
+	}
+
+	c = res.v[0] + c * 19;      res.v[0] = c & mask51;  c >>= 51;
+	res.v[1] += c;
+}
+
+
+
+#endif
+
 // Compute z11 = z¹¹ and res = z ^ (2²⁵² - 2²). Taken from the slides of
 // "Scalar-multiplication algorithms" by Peter Schwabe.
 static void raise_252_2 (Fe &res, Fe &z11, const Fe &z)
@@ -1690,28 +1821,6 @@ void reduce_store (uint8_t b[32], Fe &fe)
 	b[31] = c & 0xFF;
 }
 
-// We multiply two 64 bit limbs by decomposing them into two sublimbs with 25
-// and 26 bits each. This mimics the decomposition into 25/26 bit limbs for
-// the uint32_t representation.
-
-// Multiply the number by a small number that fits in 32 bits.
-inline void mul_small (Fe &res, const Fe &a, uint32_t bs)
-{
-	uint64_t c, b = bs;
-	uint64_t a0, a1, r0, r1;
-	c = 0;
-	for (int i = 0; i < 5; ++i) {
-		a0 = a.v[i] & mask26;
-		a1 = a.v[i] >> 26;
-		c += a0 * b;    r0 = c & mask26;     c >>= 26;
-		c += a1 * b;    r1 = c & mask25;     c >>= 25;
-		res.v[i] = (r1 << 26) | r0;
-	}
-
-	c = res.v[0] + c * 19;      res.v[0] = c & mask51;  c >>= 51;
-	res.v[1] += c;
-}
-
 
 static void raise_252_3 (Fe &res, const Fe &z)
 {
@@ -1756,96 +1865,67 @@ inline void negate (Fe &res, const Fe &a)
 	res.v[0] += c * 19;
 }
 
-int invsqrt (Fe &res, const Fe &x)
+
+inline int ct_is_zero (const Fe &u)
 {
-	Fe x3, x7, r, r2, f1, rm1;
-	square (x3, x);
-	mul (x3, x3, x);
-	square (x7, x3);
-	mul (x7, x7, x);
-	raise_252_3 (x7, x7);
-	mul (r, x3, x7);
-
-	// Check if we got the correct sign.
-	square (r2, r);
-	mul (f1, r2, x);
-	uint8_t bytes[32];
-	reduce_store (bytes, f1);
-
-	// Multiply by sqrt(-1) if it is not 1.
-	mul (rm1, r, root_minus_1);
-	cswap (r, rm1, bytes[1] & 1);
-
-	// Check that it is a square.
-	square (r2, r);
-	mul (f1, r2, x);
-	reduce_store (bytes, f1);
-	bytes[0]--;
-
-	res = r;
-	return not_zero (bytes, 32);
+	Fe v = u;
+	uint8_t d[32];
+	reduce_store (d, v);
+	return is_zero (d, 32);
 }
 
-// Store the point as Edwards y with the sign bit in bit 255.
-static void edwards_to_ey (uint8_t res[32], const Edwards &p)
+inline void select (Fe &res, const Fe &a, const Fe &b, uint64_t first)
 {
-	Fe inv, tmp;
-	invert (inv, p.z);
-	mul (tmp, p.x, inv);
-	reduce_store (res, tmp);
-	uint8_t sign = res[0] & 1;
+	uint64_t discard = first - 1;   // All zero if first == 1, all 1 if first == 0;
+	uint64_t keep = ~discard;       // All one if first == 1, all 0 if first == 0
 
-	mul (tmp, p.y, inv);
-	reduce_store (res, tmp);
-	res[31] |= sign << 7;
-}
-
-static int mx_to_edwards (Edwards &res, const uint8_t mx[32], bool neg=true)
-{
-	Fe u, t1, t2, a, b, h, s;
-	enum { A = 486662 };
-
-	load (u, mx);
-	square (t1, u);
-	mul_small (t2, u, A);
-	add (t1, t1, t2);
-	add (t1, t1, feone);
-	mul (a, t1, u);         // a = u(1 + Au + u²) = v²
-
-	add (b, u, feone);      // b = u + 1
-	mul (h, a, b);
-	mul (h, h, b);          // h = ab²
-
-	invsqrt (s, h);     // s = 1/sqrt(h);
-
-	// y = (u - 1)*a*b*s²
-	sub (t1, u, feone);
-	mul (t1, t1, a);
-	mul (t1, t1, b);
-	square (t2, s);
-	mul (res.y, t1, t2);
-
-	// x = C*u*b*s
-	mul (res.x, C, u);
-	mul (res.x, res.x, b);
-	mul (res.x, res.x, s);
-
-	uint8_t check[32];
-	int signbit = mx[31] >> 7;
-	reduce_store (check, res.x);
-
-	if (neg) signbit = !signbit;
-	// Select the correct sign bit/
-	if ((check[0] & 1) != signbit) {
-		negate (res.x, res.x);
+	for (int i = 0; i < fecount; ++i) {
+		res.v[i] = (a.v[i] & keep) | (b.v[i] & discard);
 	}
-	mul (res.t, res.x, res.y);
-	res.z = feone;
-
-	return 0;
 }
-static void montgomery_ladder (Fe &x2, Fe &z2, Fe &x3, Fe &z3,
-                    const Fe &x1, const uint8_t scalar[32])
+
+
+// Compute res = sqrt(u/v) and return 0 or res = sqrt(iu/v) and return 1. If
+// u/v is not a square then iu/v is a square. i = sqrt(-1).
+static int sqrt_ratio_m1 (Fe &res, const Fe &u, const Fe &v)
+{
+	Fe v3, v7, r, check;
+	square (v3, v);
+	mul (v3, v3, v);
+	square (v7, v3);
+	mul (v7, v7, v);
+	mul (r, u, v7);
+	raise_252_3 (r, r);
+	mul (r, r, v3);
+	mul (r, r, u);
+	square (check, r);
+	mul (check, check, v);
+
+	Fe tmp;
+	sub (tmp, check, u);
+	int correct_sign_sqrt = ct_is_zero (tmp);
+	add (tmp, check, u);
+	int flipped_sign_sqrt = ct_is_zero (tmp);
+	mul (tmp, u, root_minus_1);
+	add (tmp, tmp, check);
+	int flipped_sign_sqrt_i = ct_is_zero (tmp);
+
+	Fe r_prime;
+	mul (r_prime, root_minus_1, r);
+	select (r, r_prime, r, flipped_sign_sqrt | flipped_sign_sqrt_i);
+
+	negate (tmp, r);
+	uint8_t sc[32];
+	reduce_store (sc, r);
+	select (res, tmp, r, sc[0] & 1);
+
+	return 1 ^ (correct_sign_sqrt | flipped_sign_sqrt);
+}
+
+
+// Input x coordinate of point P and scalar. Output x2:z2 x coordinate of
+// scalar*P and x3:z3 x coordinate of (scalar+1)*P. Works for any scalar.
+static void montgomery_ladder (Fe &x2, Fe &z2, Fe &x3, Fe &z3, const Fe &x1, const uint8_t scalar[32], int startbit=255)
 {
 	x2 = feone;
 	z2 = fezero;
@@ -1854,30 +1934,30 @@ static void montgomery_ladder (Fe &x2, Fe &z2, Fe &x3, Fe &z3,
 	Fe t1, t2, t3, t4, t5, t6, t7, t8, t9;
 	// Are 2 and 3 swapped?
 	uint32_t swapped = 0;
-	for (int i = 254; i >= 0; --i) {
+	for (int i = startbit; i >= 0; --i) {
 		uint32_t current = (scalar[i/8] >> (i & 7)) & 1;
 		uint32_t flag = current ^ swapped;
 		cswap (x2, x3, flag);
 		cswap (z2, z3, flag);
 		swapped = current;
 
-		add (t1, x2, z2);
+		add_no_reduce (t1, x2, z2);
 		sub (t2, x2, z2);
-		add (t3, x3, z3);
+		add_no_reduce (t3, x3, z3);
 		sub (t4, x3, z3);
 		square (t6, t1);
 		square (t7, t2);
 		sub (t5, t6, t7);
 		mul (t8, t4, t1);
 		mul (t9, t3, t2);
-		add (x3, t8, t9);
+		add_no_reduce (x3, t8, t9);
 		square (x3, x3);
 		sub (z3, t8, t9);
 		square (z3, z3);
 		mul (z3, z3, x1);
 		mul (x2, t6, t7);
 		mul_small (z2, t5, 121666);
-		add (z2, z2, t7);
+		add_no_reduce (z2, z2, t7);
 		mul (z2, z2, t5);
 	}
 
@@ -1893,6 +1973,11 @@ static void montgomery_ladder (Fe &res, const Fe &xp, const uint8_t scalar[32])
 	mul (res, x2, z2);
 }
 
+static void montgomery_ladder (Fe &u, Fe &z, const Fe &xp, const uint8_t scalar[32], int startbit=255)
+{
+	Fe x3, z3;
+	montgomery_ladder (u, z, x3, z3, xp, scalar, startbit);
+}
 
 // Montgomery ladder with recovery of projective X:Y:Z coordinates.
 static void montgomery_ladder_uv (Fe &resu, Fe &resv, Fe &resz,
@@ -1926,185 +2011,6 @@ static void montgomery_ladder_uv (Fe &resu, Fe &resv, Fe &resz,
 	mul (resz, t1, z2);
 }
 
-static
-void mont_to_edwards (Edwards &e, const Fe &u, const Fe &v, const Fe &z)
-{
-	// y = (U-Z)/(U+Z) x = CU/V
-	// X = CU(U+Z) Y = (U-Z)V Z=(U+Z)V T=CU(U-Z)
-	Fe t1, t2, cu;
-	add (t1, u, z);
-	sub (t2, u, z);
-	mul (cu, C, u);
-	mul (e.x, cu, t1);
-	mul (e.y, t2, v);
-	mul (e.z, t1, v);
-	mul (e.t, cu, t2);
-}
-
-static
-void montgomery_ladder (Edwards &res, const Fe &xpu, const Fe &xpv, const uint8_t scalar[32])
-{
-	Fe u, v, z;
-	montgomery_ladder_uv (u, v, z, xpu, xpv, scalar);
-	mont_to_edwards (res, u, v, z);
-}
-
-// Precomputed values that are stored with z.
-struct Summand {
-	// y + x, y - x, t*2*d, z*2
-	Fe ypx, ymx, t2d, z2;
-};
-
-inline void point_add (Edwards &res, const Edwards &p, const Edwards &q)
-{
-	Fe a, b, c, d, e, f, g, h, t;
-
-	sub (a, p.y, p.x);
-	sub (t, q.y, q.x);
-	mul (a, a, t);
-	add_no_reduce (b, p.x, p.y);
-	add_no_reduce (t, q.x, q.y);
-	mul (b, b, t);
-	mul (c, p.t, q.t);
-	mul (c, c, edwards_2d);
-	mul (d, p.z, q.z);
-	add_no_reduce (d, d, d);
-	sub (e, b, a);
-	sub (f, d, c);
-	add_no_reduce (g, d, c);
-	add_no_reduce (h, b, a);
-
-	mul (res.x, e, f);
-	mul (res.y, h, g);
-	mul (res.t, e, h);
-	mul (res.z, f, g);
-}
-inline void point_add (Edwards &res, const Edwards &p, const Summand &q)
-{
-	Fe a, b, c, d, e, f, g, h;
-
-	sub (a, p.y, p.x);
-//    sub (t, q.y, q.x);
-	mul (a, a, q.ymx);
-	add_no_reduce (b, p.x, p.y);
-//    add_no_reduce (t, q.x, q.y);
-	mul (b, b, q.ypx);
-	mul (c, p.t, q.t2d);
-//    mul (c, c, edwards_2d);
-	mul (d, p.z, q.z2);
-//    add_no_reduce (d, d, d);
-	sub (e, b, a);
-	sub (f, d, c);
-	add_no_reduce (g, d, c);
-	add_no_reduce (h, b, a);
-
-	mul (res.x, e, f);
-	mul (res.y, h, g);
-	mul (res.t, e, h);
-	mul (res.z, f, g);
-}
-
-inline void point_add (Summand &res, const Summand &p, const Edwards &q)
-{
-	Fe a, b, c, d, e, f, g, h, t;
-
-//    sub (a, p.y, p.x);
-	sub (t, q.y, q.x);
-	mul (a, p.ymx, t);
-//    add_no_reduce (b, p.x, p.y);
-	add_no_reduce (t, q.x, q.y);
-	mul (b, p.ypx, t);
-	mul (c, p.t2d, q.t);
-//    mul (c, c, edwards_2d);
-	mul (d, p.z2, q.z);
-//    add_no_reduce (d, d, d);
-	sub (e, b, a);
-	sub (f, d, c);
-	add_no_reduce (g, d, c);
-	add_no_reduce (h, b, a);
-
-	Fe x, y;
-	mul (x, e, f);
-	mul (y, h, g);
-	add_no_reduce (res.ypx, x, y);
-	sub (res.ymx, y, x);
-	mul (res.t2d, e, h);
-	mul (res.t2d, res.t2d, edwards_2d);
-	mul (res.z2, f, g);
-	add_no_reduce (res.z2, res.z2, res.z2);
-}
-
-// res = p - q
-inline void point_sub (Edwards &res, const Edwards &p, const Edwards &q)
-{
-	Fe a, b, c, d, e, f, g, h, t;
-
-	sub (a, p.y, p.x);
-	add (t, q.y, q.x);
-	mul (a, a, t);
-	add_no_reduce (b, p.x, p.y);
-	sub (t, q.y, q.x);
-	mul (b, b, t);
-	negate (c, q.t);
-	mul (c, p.t, c);
-	mul (c, c, edwards_2d);
-	mul (d, p.z, q.z);
-	add_no_reduce (d, d, d);
-	sub (e, b, a);
-	sub (f, d, c);
-	add_no_reduce (g, d, c);
-	add_no_reduce (h, b, a);
-
-	mul (res.x, e, f);
-	mul (res.y, h, g);
-	mul (res.t, e, h);
-	mul (res.z, f, g);
-}
-
-inline void point_sub (Edwards &res, const Edwards &p, const Summand &q)
-{
-	Fe a, b, c, d, e, f, g, h;
-
-	sub (a, p.y, p.x);
-//    add (t, q.y, q.x);
-	mul (a, a, q.ypx);
-	add_no_reduce (b, p.x, p.y);
-//    sub (t, q.y, q.x);
-	mul (b, b, q.ymx);
-	negate (c, q.t2d);
-	mul (c, p.t, c);
-//    mul (c, c, edwards_2d);
-	mul (d, p.z, q.z2);
-//  add_no_reduce (d, d, d);
-	sub (e, b, a);
-	sub (f, d, c);
-	add_no_reduce (g, d, c);
-	add_no_reduce (h, b, a);
-
-	mul (res.x, e, f);
-	mul (res.y, h, g);
-	mul (res.t, e, h);
-	mul (res.z, f, g);
-}
-
-inline void point_double (Edwards &res, const Edwards &p)
-{
-	Fe a, b, c, h, e, g, f;
-	square (a, p.x);
-	square (b, p.y);
-	square (c, p.z);
-	add (c, c, c);
-	add (h, a, b);
-	add_no_reduce (e, p.x, p.y);
-	square (e, e);
-	sub (e, h, e);
-	sub (g, a, b);
-	add_no_reduce (f, c, g);
-	mul (res.x, e, f);
-	mul (res.y, g, h);
-	mul (res.t, e, h);
-	mul (res.z, f, g);
-}
 
 typedef int32_t Limbtype;
 
@@ -2165,14 +2071,103 @@ void reduce (uint8_t *dst, const uint8_t src[64])
 	}
 	modL(dst, x);
 }
+inline int ct_is_negative (const Fe &u)
+{
+	Fe v = u;
+	uint8_t d[32];
+	reduce_store (d, v);
+	return d[0] & 1;
+}
+struct Edwards {
+	Fe x, y, z, t;
+	// x/z and y/z are the real coordinates. t/z = (x/z)*(y/z)
+};
 
-static
-void sign_bmx (const char *prefix, const uint8_t *m, size_t mlen, const uint8_t A[32],
-               const uint8_t scalar[32], uint8_t sig[64])
+
+static const Fe invsqrt_a_minus_d = { 0xfdaa805d40ea, 0x2eb482e57d339, 0x7610274bc58,
+                                      0x6510b613dc8ff, 0x786c8905cfaff };
+static const Fe one_minus_d_sq    = { 0x409c1945fc176, 0x719abc6a1fc4f, 0x1c37f90b20684,
+                                      0x6bccca55eedf, 0x29072a8b2b3e };
+static const Fe d_minus_one_sq    = { 0x55aaa44ed4d20, 0x59603c3332635, 0x26d3baf4a7928,
+                                      0x120a66e6997a9, 0x5968b37af66c2 };
+static const Fe sqrt_ad_minus_one = { 0x7f6a0497b2e1b, 0x1836f0a97afd2, 0x7d747f6be7638,
+                                      0x456079e7e6498, 0x376931bf2b834 };
+
+
+void edwards_to_ristretto (uint8_t s[32], const Edwards p)
+{
+	Fe u1, u2, isr;
+	add (u1, p.z, p.y);
+	sub (u2, p.z, p.y);
+	mul (u1, u1, u2);
+	mul (u2, p.x, p.y);
+
+	square (isr, u2);
+	mul (isr, isr, u1);
+	sqrt_ratio_m1 (isr, feone, isr);
+
+	Fe den1, den2, z_inv;
+	mul (den1, isr, u1);
+	mul (den2, isr, u2);
+	mul (z_inv, den1, den2);
+	mul (z_inv, z_inv, p.t);
+
+	Fe ix0, iy0;
+	mul (ix0, p.x, root_minus_1);
+	mul (iy0, p.y, root_minus_1);
+
+	Fe enden;
+	mul (enden, den1, invsqrt_a_minus_d);
+
+	Fe tmp;
+	mul (tmp, p.t, z_inv);
+	int rotate = ct_is_negative (tmp);
+	Fe x, y, z;
+	select (x, iy0, p.x, rotate);
+	select (y, ix0, p.y, rotate);
+	z = p.z;
+
+	Fe den_inv;
+	select (den_inv, enden, den2, rotate);
+
+	mul (tmp, x, z_inv);
+	int isneg = ct_is_negative (tmp);
+	negate (tmp, y);
+	select (y, tmp, y, isneg);
+
+	sub (tmp, z, y);
+	Fe spos, sneg;
+	mul (spos, tmp, den_inv);
+	negate (sneg, spos);
+	select (spos, sneg, spos, ct_is_negative (spos));
+
+	reduce_store (s, spos);
+}
+
+void mont_to_edwards (Edwards &e, const Fe &u, const Fe &v, const Fe &z)
+{
+	// y = (U-Z)/(U+Z) x = CU/V
+	// X = CU(U+Z) Y = (U-Z)V Z=(U+Z)V T=CU(U-Z)
+	Fe t1, t2, cu;
+	add_no_reduce (t1, u, z);
+	sub (t2, u, z);
+	mul (cu, C, u);
+	mul (e.x, cu, t1);
+	mul (e.y, t2, v);
+	mul (e.z, t1, v);
+	mul (e.t, cu, t2);
+}
+
+
+
+void cu25519_sign (const char *prefix, const uint8_t *m, size_t mlen,
+                   const Cu25519Ris &ris, const Cu25519Sec &scalar,
+                   uint8_t sig[64])
 {
 	uint8_t hr[64], r[32], hram[64], rhram[32];
 
-	blake2b (hr, 32, scalar, 32, NULL, 0);
+	blake2b (hr, 32, scalar.b, 32, NULL, 0);
+
 	blake2b_ctx bs;
 	blake2b_init (&bs, 64, NULL, 0);
 	size_t plen;
@@ -2186,9 +2181,11 @@ void sign_bmx (const char *prefix, const uint8_t *m, size_t mlen, const uint8_t 
 	reduce (r, hr);
 
 	// R = rB
-	Edwards R;
-	montgomery_ladder (R, bu, bv, r);
-	edwards_to_ey (sig, R);
+	Fe fu, fv, fz;
+	montgomery_ladder_uv (fu, fv, fz, bu, bv, r);
+	Edwards re;
+	mont_to_edwards (re, fu, fv, fz);
+	edwards_to_ristretto (sig, re);
 
 	// rhram = H(R,A,m)
 	blake2b_init (&bs, 64, NULL, 0);
@@ -2196,7 +2193,7 @@ void sign_bmx (const char *prefix, const uint8_t *m, size_t mlen, const uint8_t 
 		blake2b_update (&bs, prefix, plen);
 	}
 	blake2b_update (&bs, sig, 32);
-	blake2b_update (&bs, A, 32);
+	blake2b_update (&bs, ris.b, 32);
 	blake2b_update (&bs, m, mlen);
 	blake2b_final (&bs, hram);
 	reduce (rhram, hram);
@@ -2211,7 +2208,7 @@ void sign_bmx (const char *prefix, const uint8_t *m, size_t mlen, const uint8_t 
 	}
 	for (unsigned i = 0; i < 32; ++i) {
 		for (unsigned j = 0; j < 32; ++j) {
-			x[i+j] += rhram[i] * (Limbtype) scalar[j];
+			x[i+j] += rhram[i] * (Limbtype) scalar.b[j];
 		}
 	}
 
@@ -2219,187 +2216,6 @@ void sign_bmx (const char *prefix, const uint8_t *m, size_t mlen, const uint8_t 
 	modL (sig + 32, x);
 }
 
-static
-void edwards_to_summand (Summand &s, const Edwards &e)
-{
-	add (s.ypx, e.y, e.x);
-	sub (s.ymx, e.y, e.x);
-	mul (s.t2d, e.t, edwards_2d);
-	add (s.z2, e.z, e.z);
-}
-
-static void compute_naf_window (int8_t d[256], const uint8_t s[32], int w = 5)
-{
-	// First extract the bits so that they can be handled easily.
-	for (int i = 0; i < 256; ++i) {
-		d[i] = (s[i >> 3] >> (i & 7)) & 1;
-	}
-
-	int wm1 = 1 << (w-1);
-	int wm2 = 1 << w;
-	for (int i = 0; i < 256; ++i) {
-		if (d[i]) {
-			int collect = d[i];
-			int j;
-			for (j = 1; j < w && (i + j < 256); ++j) {
-				if (d[i + j]) {
-					collect += d[i + j] << j;
-					d[i + j] = 0;
-				}
-			}
-			if (collect >= wm1) {
-				int k = i + j;
-				while (k < 256) {
-					if (d[k]) {
-						d[k] = 0;
-					} else {
-						d[k] = 1;
-						break;
-					}
-					++k;
-				}
-			  d[i] = collect - wm2;
-			} else {
-				d[i] = collect;
-			}
-			i += w - 1;
-		}
-	}
-}
-
-
-static const Summand base_summands[16] = {
-  { // 1B
-	{ 0x493c6f58c3b85, 0xdf7181c325f7, 0xf50b0b3e4cb7, 0x5329385a44c32, 0x7cf9d3a33d4b,  },
-	{ 0x3905d740913e, 0xba2817d673a2, 0x23e2827f4e67c, 0x133d2e0c21a34, 0x44fd2f9298f81,  },
-	{ 0x11205877aaa68, 0x479955893d579, 0x50d66309b67a0, 0x2d42d0dbee5ee, 0x6f117b689f0c6,  },
-	{ 0x0000002, 0x0000000, 0x0000000, 0x0000000, 0x0000000,  }
-  },
-  { // 3B
-	{ 0x36174f1981549, 0x17d9a0600fa59, 0x75b00590cdcd2, 0x41c32cdfe47ff, 0x71b659648aa08,  },
-	{ 0x3369af876562d, 0x64abf48a62cf4, 0xc00e341f59bb, 0x575133eddecfe, 0x622721b452d48,  },
-	{ 0x6306a606d9bdb, 0x5bde689d46c22, 0x4880c1b68649d, 0x2243f62a6cbf, 0x771ea6c5c80eb,  },
-	{ 0x78b3b3f74d3db, 0x1127548c9d7e6, 0x120164ac679e0, 0x642b94e0c159a, 0x20203e8a10759,  }
-  },
-  { // 5B
-	{ 0x76706b1b6817b, 0x199bd9f6a0d29, 0x126cf6302e6e7, 0x29a75cae7fcc9, 0x5b826633693b0,  },
-	{ 0x381bfc072f49a, 0x58962d62b130b, 0x7d3d698d9e37f, 0x584ffa5616ee0, 0x175dc2856fe2a,  },
-	{ 0x34c54961137a2, 0x8559604b6018, 0x32c940411c47a, 0x1d08b52b07806, 0x43d40a60ab451,  },
-	{ 0x61d4bc02881e, 0x11c5a5fe88d71, 0x58a712c610313, 0x5191d8458ff67, 0x6e781e08b95be,  }
-  },
-  { // 7B
-	{ 0x14384b1395e9, 0x2fa93a2de17d4, 0x17722f302676c, 0x222f16815625d, 0x424ef0ca14e92,  },
-	{ 0x6cc9bd3946a6a, 0x159b59ac47498, 0x1bd60942e433e, 0x50666529d038a, 0x5a4cced5461c0,  },
-	{ 0x8df56365fcbf, 0x2004d51340fec, 0x21911206d0e2e, 0x3a20d79d1b5ff, 0x634b88af3ddfb,  },
-	{ 0x7e9ac18a909c6, 0x11bde3e20dd0b, 0x3f8a70c1eddb0, 0x41274fb8fdc04, 0x480edc5d41bec,  }
-  },
-  { // 9B
-	{ 0x1b56081eb45e9, 0x2d361c61e0fa6, 0x18ad924a1eb1b, 0x61bcfa83d3cb0, 0x1eeec33a741c7,  },
-	{ 0x5ec352dcb4b99, 0x6197b03f6a36a, 0x7895deecab48, 0x19ffe378ad2d, 0x5207aa29b4ded,  },
-	{ 0x7052511fa8b23, 0x4baa0ac5ba310, 0x536a7b67014d7, 0x3f612d8154457, 0x62a66fad1e352,  },
-	{ 0x345a1db7569c9, 0x164902fc073c8, 0x1b4fb58a4dd44, 0x758bf22689fe1, 0x3bd107a8003f1,  }
-  },
-  { // 11B
-	{ 0x4d22bc739c1dc, 0x44d3469de2507, 0x4baf853bca636, 0x5338ebd5c910c, 0x7b6437f92b959,  },
-	{ 0x1595b0fb4402c, 0x5ac83a4805465, 0x60dc165c0ea84, 0x721b743bd2cf8, 0x595dab59999f5,  },
-	{ 0x13925dc1945ba, 0x5b19f5d5274fc, 0x4717ddd52547c, 0x7295abf88706a, 0x6db4a6f10f8d1,  },
-	{ 0x51574b88c3d9b, 0x549c828548991, 0x4a7f41d63f474, 0x1f18f7c36a0ff, 0x1f54ba252b3ac,  }
-  },
-  { // 13B
-	{ 0x4af635a7b920f, 0x5222c37dfd86f, 0x35f815f4c06, 0x79b2d829c416f, 0x4278ba85a90fe,  },
-	{ 0x6821950a6ee7a, 0x28117bf81bf7, 0x4cd13b50c96c3, 0x278940234bcf7, 0xb60acc0b0b4e,  },
-	{ 0x3532342a59649, 0x7b3cf141da325, 0x7613bbc3627b7, 0x6814b0e3e79ad, 0x299aeb3e3ef4d,  },
-	{ 0x586f0375b0031, 0x42e31254c2044, 0x5ed5a8e6503fd, 0x2717d105fc9c4, 0x27bc80e3952b4,  }
-  },
-  { // 15B
-	{ 0x38fde68fd4ea3, 0xab536d14bb85, 0x56db736b6cc02, 0x6b00cecbda380, 0x187e413cbd0ef,  },
-	{ 0xf2fdb0c5dcd9, 0x2a14b9b977894, 0x2f3a693057095, 0x4493eb9f642b7, 0x558dcfcca9c9f,  },
-	{ 0xa46de3af830d, 0x200948e91cf49, 0x32d3a6cf4077, 0x480ecd0655923, 0x49043d7f5671,  },
-	{ 0x7027c733d848c, 0x7915578ec2b32, 0x6a5546a5feb09, 0x61e160c8e8e61, 0xc829c003833b,  }
-  },
-  { // 17B
-	{ 0x61ef27ae6c4f2, 0x341d8f63762fb, 0x34ed1a271ff77, 0x5b6a87a402f51, 0x3d09f5bbd9523,  },
-	{ 0x10b810ed7a28d, 0x5881a027fa852, 0x2be2bcf21f6b6, 0x5e5e76d370285, 0x7bd0c8562e9d8,  },
-	{ 0x60f4a99398b0a, 0x2fe5f8dcc0d8a, 0x65b1cb8a69843, 0x172cff83dc6ea, 0x2b487756d757b,  },
-	{ 0x406361dcace16, 0x58fdd94e9c4d2, 0x69c63e5c5fd2a, 0x7c2e98b20d72d, 0x2d662f59f73fe,  }
-  },
-  { // 19B
-	{ 0x724c1be5f10c1, 0x4ecddccbc647d, 0x18f80c18a661f, 0x7f27fa6731b1b, 0x51cb6745bb10,  },
-	{ 0x51e9bf8df9c6a, 0x1cd3b4d771c29, 0x66463316223d8, 0xd46ef365bd3d, 0x2450cc29dc6c7,  },
-	{ 0x40e8ba8b712f3, 0x6485c0e4ff6ff, 0x5cfed9b41de64, 0x10049344a3c02, 0x500934ac138af,  },
-	{ 0x15da012a7e09b, 0x5b2a7fc9ab9a0, 0x64d50a4800d31, 0x168692c106628, 0x19dc09b1423f7,  }
-  },
-  { // 21B
-	{ 0x6ce70867e1c83, 0x7620c6534a00a, 0x7788a0a3c2700, 0x56a0b07a0dd81, 0x5971ec0d1602b,  },
-	{ 0x7644d82c5b51, 0x44df8cc60b2a7, 0x26a775f7b5a39, 0x66832c83291dd, 0x5582100ab0912,  },
-	{ 0x20b1a4aa1a7fe, 0x289fb711515bb, 0x330f75a09b0b1, 0x63f8d84563ced, 0x387b9495583f7,  },
-	{ 0x24cda03b82f0a, 0x6e0f54a09b6f, 0x16690d4d00afc, 0x34841925705f4, 0x79b1ee27e6a32,  }
-  },
-  { // 23B
-	{ 0x13c4f66345cfa, 0x33da54df74ed5, 0xdf53dc4d5bf3, 0x62926e0ec4189, 0x5b4625b9d15ee,  },
-	{ 0x5e42e240b1e70, 0x7c7705da24bd0, 0x16f465c8effd, 0x11d36bc46bc47, 0xc119db796e5,  },
-	{ 0x35187512184c2, 0x2d4ff33e46290, 0x640069192956a, 0x7657fcb2a50d3, 0x1c3b805b4c404,  },
-	{ 0x5b6cb555550f2, 0x583b3af15d06c, 0x56be7856a482a, 0x6232658510a0d, 0x34b004d630eb9,  }
-  },
-  { // 25B
-	{ 0x72e6f60d0388, 0x57a9adfa43bc4, 0x17f2db5d66905, 0x593c353ca5fbd, 0x44c0f204b9259,  },
-	{ 0x36710184efc10, 0x7fffc0223b0bf, 0x57bd65a4fb34d, 0x15c23ed912729, 0x4b4dedcb44a5d,  },
-	{ 0xca8a2fe1b1c0, 0x5daa0c80039ce, 0x78441c32b5d9d, 0x115a705aba81f, 0x5417ad014bcc6,  },
-	{ 0x51f970f682397, 0x468b6c1d84a1a, 0x6484f63328e72, 0x5f4f4d1654fdb, 0xfda60a9cc2bb,  }
-  },
-  { // 27B
-	{ 0x3d0a3f228d6ba, 0x39b9c213a662a, 0x1a53320304b54, 0xf9f0335f94cc, 0x65889aa3eba65,  },
-	{ 0x2787584eb205c, 0x3ecdfb9bc72d4, 0x5184244e5baa6, 0x7df9eb41e70fe, 0x24d5a06e10421,  },
-	{ 0x681ad1c7e5489, 0x2460538b91a46, 0x54fa40cc50e5b, 0x631e3058245c7, 0x30f8eeb36bf7d,  },
-	{ 0x1141d493b6083, 0x5ede36574bc5f, 0x798fb8e205587, 0x3e8cbe0b1b7b9, 0x13c2b53cde659,  }
-  },
-  { // 29B
-	{ 0x7fa88eb796035, 0x5a8fb0f69929a, 0x2ba5de19af326, 0x68f00d7380789, 0x4f15ae5688341,  },
-	{ 0x4540e59b58f71, 0x2c3ee77114fac, 0x24fee2c96de78, 0x3dc226569b48f, 0xac2364dc4315,  },
-	{ 0x25ad4450bc87d, 0x128828c6848bd, 0x7d9230aaa2bb9, 0x3a87624ada667, 0x4b51c71919aaa,  },
-	{ 0x82a15426e313, 0x1bad25164494d, 0xe5af5dafa851, 0x685600dc0a3ff, 0x4acfcc1eecdad,  }
-  },
-  { // 31B
-	{ 0x42a9c4ecf97a8, 0x677ba961627d6, 0xa9cac550daa3, 0x3ffec8ac576f1, 0x128e0e7560f32,  },
-	{ 0x430f61549528c, 0x3277d82ca4faa, 0x7d53b5e070345, 0x1ffc7edb862a6, 0x59456b1545d50,  },
-	{ 0x626169c3f69a7, 0x283252e6798a1, 0x3082f6f441d2, 0x7bbfb0d338546, 0x1eea58ae342c1,  },
-	{ 0xdcd5617e904e, 0x6c0b6ae4b5ef7, 0x1fdd93209de20, 0x5263dfaf34f8e, 0x4b763eac05e75,  }
-  }
-};
-
-
-// Variable time res = s1*B + s2*P, where B is the base point.
-static
-void scalarmult_wnaf (Edwards &res, const uint8_t s1[32],
-                      const Edwards &p, const uint8_t s2[32])
-{
-	int8_t d1[256], d2[256];
-	compute_naf_window (d1, s1, 6);
-	compute_naf_window (d2, s2, 5);
-
-	Edwards p2;
-	Summand mulp[8];
-	edwards_to_summand (mulp[0], p);
-	point_double (p2, p);
-	for (int i = 1; i < 8; ++i) {
-		point_add (mulp[i], mulp[i-1], p2);
-	}
-
-	res = edzero;
-	for (int j = 255; j >= 0; --j) {
-		point_double (res, res);
-		if (d1[j] > 0) {
-			point_add (res, res, base_summands[d1[j]/2]);
-		} else if (d1[j] < 0) {
-			point_sub (res, res, base_summands[-d1[j]/2]);
-		}
-		if (d2[j] > 0) {
-			point_add (res, res, mulp[d2[j]/2]);
-		} else if (d2[j] < 0) {
-			point_sub (res, res, mulp[-d2[j]/2]);
-		}
-	}
-}
 
 // Order of the group.
 static const uint8_t order[32] = {
@@ -2421,40 +2237,108 @@ static uint32_t gt_than (const uint8_t v[32], const uint8_t lim[32])
 	return gt;
 }
 
-static
-int verify_bmx (const char *prefix, const uint8_t *m, size_t mlen, const uint8_t sig[64],
-                const uint8_t mx[32])
+inline void shift8_scalar (uint8_t newsc[33], const uint8_t oldsc[32])
+{
+	int bits = 0;
+	for (int i = 0; i < 32; ++i) {
+		bits = (bits & 0x7) | (int(oldsc[i]) << 3);
+		newsc[i] = bits;
+		bits >>= 8;
+	}
+	newsc[32] = bits;
+}
+
+
+// Verify a ristretto signature using qDSA.
+int cu25519_verify (const char *prefix, const uint8_t *m, size_t mlen,
+                    const uint8_t sig[64], const Cu25519Ris &A)
 {
 	if (!gt_than (order, sig + 32)) {
-		return -1;
-	}
-
-	Edwards p;
-	if (mx_to_edwards (p, mx) != 0) {
 		return -1;
 	}
 
 	uint8_t hram[64];
 	blake2b_ctx bs;
 	blake2b_init (&bs, 64, NULL, 0);
-	size_t plen;
 	if (prefix != NULL) {
-		plen = strlen (prefix) + 1;
-		blake2b_update (&bs, prefix, plen);
+		size_t n = strlen (prefix);
+		blake2b_update (&bs, prefix, n + 1);    // Include terminating null to establish a unique prefix.
 	}
 	blake2b_update (&bs, sig, 32);
-	blake2b_update (&bs, mx, 32);
+	blake2b_update (&bs, A.b, 32);
 	blake2b_update (&bs, m, mlen);
 	blake2b_final (&bs, hram);
 
 	uint8_t rhram[32];
 	reduce (rhram, hram);
 
-	Edwards newr;
-	scalarmult_wnaf (newr, sig + 32, p, rhram);
-	uint8_t newrp[32];
-	edwards_to_ey (newrp, newr);
-	return crypto_neq (sig, newrp, 32);
+	// We shall check 8R == ±8SB ± 8hA
+
+	// We need to multiply by the cofactor because the representative taken
+	// from Ristretto may have any component of small order in addition to
+	// the point in the main group. We need to clear these components.
+
+	// Multiply the scalars by eight. They still fit in 256 bits  because
+	// they were < group order.
+	uint8_t r8[33], s8[33];
+	shift8_scalar (r8, rhram);
+	shift8_scalar (s8, sig + 32);
+
+	Fe fau, fu1, fz1, fu2, fz2, fu3, fz3;
+	load (fau, A.b);
+	square (fau, fau);
+	montgomery_ladder (fu2, fz2, fau, r8);
+	static const Fe fmb = { 9 };
+	montgomery_ladder (fu3, fz3, fmb, s8);
+
+	uint8_t sc8 = 8;
+	Fe fr;
+	load (fr, sig);
+	square (fr, fr);
+	montgomery_ladder (fu1, fz1, fr, &sc8, 3);
+
+	// Check that M(u1/z1) = ±M(u2/z2) ± M(u3/z3) where M(u/z) is the point
+	// with Montgomery coordinate X = u/z. The Montgomery addition law
+	// requires the following:
+
+	// 4 (U1.Z2.Z3 + U2.Z1.Z3 + U3.Z1.Z2 + A.Z1.Z2.Z3) (U1.U2.U3) =
+	//    (Z1.Z2.Z3 - U1.U2.Z3 - U2.U3.Z1 - U3.U1.Z2)²
+
+	Fe tmp1, tmp2, tmp3, u1z2, u2z1, u3z1, z1z2z3, u1u2;
+	mul (u1z2, fu1, fz2);
+	mul (tmp1, u1z2, fz3);
+
+	mul (u2z1, fu2, fz1);
+	mul (tmp2, u2z1, fz3);
+	add_no_reduce (tmp1, tmp1, tmp2);
+
+	mul (u3z1, fu3, fz1);
+	mul (tmp2, u3z1, fz2);
+	add_no_reduce (tmp1, tmp1, tmp2);
+
+	mul (z1z2z3, fz1, fz2);
+	mul (z1z2z3, z1z2z3, fz3);
+	mul_small (tmp2, z1z2z3, 486662);
+	add_no_reduce (tmp1, tmp1, tmp2);
+
+	mul (u1u2, fu1, fu2);
+	mul (tmp1, tmp1, u1u2);
+	mul (tmp1, tmp1, fu3);
+	add_no_reduce (tmp1, tmp1, tmp1);
+	add_no_reduce (tmp1, tmp1, tmp1);
+
+	mul (tmp2, u1u2, fz3);
+	mul (tmp3, u3z1, fu2);
+	add_no_reduce (tmp2, tmp2, tmp3);
+	mul (tmp3, u1z2, fu3);
+	add_no_reduce (tmp2, tmp2, tmp3);
+	sub (tmp2, z1z2z3, tmp2);
+	square (tmp2, tmp2);
+
+	sub (tmp1, tmp1, tmp2);
+	uint8_t res[32];
+	reduce_store (res, tmp1);
+	return !is_zero (res, 32);
 }
 
 
@@ -2480,7 +2364,7 @@ sqrt(-1)sqrt(A+2): e781ba00 55fb9133 7de582b4 2e2c5e3a 81b003fc 23f7842d 44f95f9
 
 static const Fe sqrtmA2 = { 0x1fb5500ba81e7, 0x5d6905cafa672, 0xec204e978b0,
                             0x4a216c27b91fe, 0x70d9120b9f5ff };
-							
+
 
 // (p-1)/2: 2²⁵⁴ - 10
 static const uint8_t pm12[32] = {
@@ -2500,7 +2384,7 @@ static int elligator2_p2r (Fe &r, const Fe &u, const Fe &v)
 	negate (uua, uua);      // uua = -2u(u+A)
 
 	Fe riuua;
-	if (invsqrt (riuua, uua) != 0) {   // riuua = 1/sqrt(-2u(u+A))
+	if (sqrt_ratio_m1 (riuua, feone, uua) != 0) {
 		// If -2u(u+A) is not a square then we cannot compute the
 		// representative. Return -1 to signal an error.
 		return -1;
@@ -2535,7 +2419,7 @@ static int elligator2_p2r (Fe &r, const Fe &u, const Fe &v)
 // Pass as input xs, filled with random bytes. The function will adjust xs
 // and will compute xp and the corresponding representative.
 
-void cu25519_elligator2_gen (Cu25519Sec *xs, Cu25519Pub *xp, Cu25519Rep *rep)
+void cu25519_elligator2_gen (Cu25519Sec *xs, Cu25519Mon *xp, Cu25519Ell *rep)
 {
 	mask_scalar (xs->b);
 	Fe fr, fmx, u, v, z;
@@ -2617,7 +2501,7 @@ void elligator2_r2u (Fe &u, const Fe &r)
 	sub (u, d, tmp);
 }
 
-void cu25519_elligator2_rev (Cu25519Pub *u, const Cu25519Rep & rep)
+void cu25519_elligator2_rev (Cu25519Mon *u, const Cu25519Ell & rep)
 {
 	Fe fr, fu;
 	load (fr, rep.b);
@@ -2626,53 +2510,51 @@ void cu25519_elligator2_rev (Cu25519Pub *u, const Cu25519Rep & rep)
 	// discard bit 253 because r < (p-1)/2 and the top two bits had been
 	// filled with random bits.
 	fr.v[4] &= (1ULL << 50) - 1;
-	
+
 	elligator2_r2u (fu, fr);
 	reduce_store (u->b, fu);
 }
 
 
 
-void cu25519_shared_secret (uint8_t sh[32], const Cu25519Pub &xp, const Cu25519Sec &xs)
+void cu25519_shared_secret (uint8_t sh[32], const Cu25519Mon &xp, const Cu25519Sec &xs)
 {
 	Fe b, r;
 	load (b, xp.b);
 	montgomery_ladder (r, b, xs.b);
 	reduce_store (sh, r);
 }
+void cu25519_shared_secret (uint8_t sh[32], const Cu25519Ris &xp, const Cu25519Sec &xs)
+{
+	Fe b, r;
+	load (b, xp.b);
+	square (b, b);
+	montgomery_ladder (r, b, xs.b);
+	reduce_store (sh, r);
+}
 
-void cu25519_generate (Cu25519Sec *xs, Cu25519Pub *xp)
+void cu25519_generate (Cu25519Sec *xs, Cu25519Mon *xp)
 {
 	mask_scalar (xs->b);
-	Fe u, v, z, t1, t2;
+	Fe u, v, z;
 	montgomery_ladder_uv (u, v, z, bu, bv, xs->b);
-	// y = (U-Z)/(U+Z) x = CU/V
-	mul (t1, v, z);
-	invert (t1, t1);  // t1 = 1/(vz)
-	mul (t2, u, t1);
-	mul (t2, t2, v);
-	reduce_store (xp->b, t2);
-	mul (t2, C, u);
-	mul (t2, t2, t1);
-	mul (t2, t2, z);
-	uint8_t tmp[32];
-	reduce_store (tmp, t2);
-	xp->b[31] |= (tmp[0] & 1) << 7;
+	invert (z, z);
+	mul (z, z, u);
+	reduce_store (xp->b, z);
 }
 
-
-void cu25519_sign (const char *prefix, const uint8_t *m, size_t mlen, const Cu25519Pub &xp,
-                   const Cu25519Sec &xs, uint8_t sig[64])
+void cu25519_generate (Cu25519Sec *scalar, Cu25519Ris *ris)
 {
-	sign_bmx (prefix, m, mlen, xp.b, xs.b, sig);
+	mask_scalar (scalar->b);
+
+	Fe fu, fv, fz;
+	montgomery_ladder_uv (fu, fv, fz, bu, bv, scalar->b);
+	Edwards re;
+	mont_to_edwards (re, fu, fv, fz);
+	edwards_to_ristretto (ris->b, re);
 }
 
 
-int cu25519_verify (const char *prefix, const uint8_t *m, size_t mlen, const uint8_t sig[64],
-                    const Cu25519Pub &xp)
-{
-	return verify_bmx (prefix, m, mlen, sig, xp.b);
-}
 
 }}
 

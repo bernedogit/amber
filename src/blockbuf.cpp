@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018 Pelayo Bernedo.
+/* Copyright (c) 2015-2019 Pelayo Bernedo.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -418,7 +418,7 @@ void Blockbuf::write_sym_header(std::streambuf *io,
 }
 
 
-void create_hsx (const Cu25519Pair &tx, const Cu25519Pub &rx, const uint8_t symk[33],
+void create_hsx (const Cu25519Pair &tx, const Cu25519Ris &rx, const uint8_t symk[33],
                  std::vector<uint8_t> &out, Chakey *ka, Chacha &krand, bool spoofed=false)
 {
 	Symmetric s;
@@ -426,15 +426,19 @@ void create_hsx (const Cu25519Pair &tx, const Cu25519Pub &rx, const uint8_t symk
 	s.mix_hash (NULL, 0);   // prologue
 	s.mix_hash (spoofed ? tx.xp.b : rx.b, 32);
 	Cu25519Sec es;
-	Cu25519Pub ep;
-	Cu25519Rep er;
+	Cu25519Mon ep;
+	Cu25519Ell er;
 	krand.copy (es.b, 32);
 	cu25519_elligator2_gen (&es, &ep, &er);
 	out.resize (32);
 	memcpy (&out[0], er.b, 32);
 	s.mix_hash (er.b, 32);
 	uint8_t sh[32];
-	cu25519_shared_secret (sh, spoofed ? tx.xp : rx, es);
+	if (spoofed) {
+		cu25519_shared_secret (sh, tx.xp, es);
+	} else {
+		cu25519_shared_secret (sh, rx, es);
+	}
 	s.mix_key (sh, 32);
 	s.encrypt_and_hash (spoofed ? rx.b : tx.xp.b, 32, out);
 	cu25519_shared_secret (sh, rx, tx.xs);
@@ -446,7 +450,7 @@ void create_hsx (const Cu25519Pair &tx, const Cu25519Pub &rx, const uint8_t symk
 
 void Blockbuf::write_pub_header (std::streambuf *io, unsigned block_size,
         unsigned block_filler, const Cu25519Pair &tx,
-        const std::vector<Cu25519Pub> &rx,
+        const std::vector<Cu25519Ris> &rx,
         Chakey *kw, uint64_t *nonce64, std::vector<Chakey> &kav,
         bool spoof, uint32_t info_size)
 {
@@ -541,7 +545,7 @@ void Blockbuf::init_write (std::streambuf *sb, const char *password,
 
 
 void Blockbuf::init_write (std::streambuf *sb, const Cu25519Pair &tx,
-                           const std::vector<Cu25519Pub> &rx, ptrdiff_t bs,
+                           const std::vector<Cu25519Ris> &rx, ptrdiff_t bs,
                            ptrdiff_t bf)
 {
 	// We ensure that all the random number generation is also keyed with the
@@ -567,7 +571,7 @@ void Blockbuf::init_write (std::streambuf *sb, const Cu25519Pair &tx,
 
 
 void Blockbuf::init_spoof(std::streambuf *sb, const Cu25519Pair &rxpair,
-                          const Cu25519Pub &txpub,
+                          const Cu25519Ris &txpub,
                           int ndummies, ptrdiff_t bs, ptrdiff_t bf)
 {
 	krand.reset (rxpair.xs.b, 32);
@@ -579,7 +583,7 @@ void Blockbuf::init_spoof(std::streambuf *sb, const Cu25519Pair &rxpair,
 	Cu25519Sec dummysec;
 	krand.get_bytes(dummysec.b, 32);
 
-	std::vector<Cu25519Pub> rx(ndummies + 1);
+	std::vector<Cu25519Ris> rx(ndummies + 1);
 	for (int i = 0; i < ndummies; ++i) {
 		krand.get_bytes(rx[i + 1].b, 32);
 	}
@@ -652,7 +656,7 @@ void read_sym_header(std::streambuf *io, const char *password, Chakey *kw,
 
 static
 void read_pub_header (std::streambuf *io, const Cu25519Pair &rx,
-            Cu25519Pub *sender, Chakey *ka, int *nrx, int *keypos,
+            Cu25519Ris *sender, Chakey *ka, int *nrx, int *keypos,
             ptrdiff_t *bs, ptrdiff_t *bf, Chakey *kn, uint64_t *nonce64,
             uint32_t *info_size)
 {
@@ -720,7 +724,7 @@ void Blockbuf::init_read (std::streambuf *sb, const char *password, int shifts_m
 }
 
 void Blockbuf::init_read (std::streambuf *sb, const Cu25519Pair &rx,
-                          Cu25519Pub *sender, int *nrx)
+                          Cu25519Ris *sender, int *nrx)
 {
 	Chakey kw;
 	uint64_t nonce64;
@@ -798,7 +802,7 @@ ofstream::ofstream(const char *name, const char *password, ptrdiff_t bs,
 
 
 ofstream::ofstream(const char *name, const Cu25519Pair &tx,
-                   const std::vector<Cu25519Pub> &rx,
+                   const std::vector<Cu25519Ris> &rx,
                    ptrdiff_t bs, ptrdiff_t bf)
 	: std::ostream(&bbe)
 {
@@ -834,7 +838,7 @@ void ofstream::open(const char *name, const char *password, ptrdiff_t bs,
 
 
 void ofstream::open(const char *name, const Cu25519Pair &tx,
-                    const std::vector<Cu25519Pub> &rx, ptrdiff_t bs,
+                    const std::vector<Cu25519Ris> &rx, ptrdiff_t bs,
                     ptrdiff_t bf)
 {
 	try {
@@ -852,7 +856,7 @@ void ofstream::open(const char *name, const Cu25519Pair &tx,
 
 
 void ofstream::open_spoof(const char *name, const Cu25519Pair &rx,
-                          const Cu25519Pub &txpub,
+                          const Cu25519Ris &txpub,
                           int ndummies, ptrdiff_t bs, ptrdiff_t bf)
 {
 	try {
@@ -900,14 +904,14 @@ ifstream::ifstream(const char *name, const char *password, std::nothrow_t, int s
 }
 
 
-ifstream::ifstream(const char *name, const Cu25519Pair &rx, Cu25519Pub *sender, int *nrx)
+ifstream::ifstream(const char *name, const Cu25519Pair &rx, Cu25519Ris *sender, int *nrx)
 	: std::istream(&bbe)
 {
 	exceptions(std::ios_base::badbit);
 	open(name, rx, sender, nrx);
 }
 
-ifstream::ifstream(const char *name, const Cu25519Pair &rx, Cu25519Pub *sender, int *nrx,
+ifstream::ifstream(const char *name, const Cu25519Pair &rx, Cu25519Ris *sender, int *nrx,
                    std::nothrow_t)
 	: std::istream(&bbe)
 {
@@ -945,7 +949,7 @@ void ifstream::open(const char *name, const char *password, std::nothrow_t, int 
 }
 
 
-void ifstream::open(const char *name, const Cu25519Pair &rx, Cu25519Pub *sender, int *nrx)
+void ifstream::open(const char *name, const Cu25519Pair &rx, Cu25519Ris *sender, int *nrx)
 {
 	try {
 		is.open(name, is.binary);
@@ -960,7 +964,7 @@ void ifstream::open(const char *name, const Cu25519Pair &rx, Cu25519Pub *sender,
 	}
 }
 
-void ifstream::open(const char *name, const Cu25519Pair &rx, Cu25519Pub *sender, int *nrx, std::nothrow_t)
+void ifstream::open(const char *name, const Cu25519Pair &rx, Cu25519Ris *sender, int *nrx, std::nothrow_t)
 {
 	try {
 		open(name, rx, sender, nrx);
@@ -1099,8 +1103,8 @@ void hide (const char *ename, const char *bogus, const char *real,
 
 
 void hide (const char *ename, const char *bogus, const char *real,
-           const Cu25519Pair &tx, const std::vector<Cu25519Pub> &rx,
-           const Cu25519Pub &rx2, int bs, int bf)
+           const Cu25519Pair &tx, const std::vector<Cu25519Ris> &rx,
+           const Cu25519Ris &rx2, int bs, int bf)
 {
 	std::ofstream os (ename, os.binary);
 	if (!os) {
@@ -1251,7 +1255,7 @@ void reveal (const char *oname, const char *iname, const char *pass1,
 
 
 void reveal(const char *oname, const char *iname, const Cu25519Pair &rx1,
-            const Cu25519Sec &rx2, Cu25519Pub *sender, int *nrx)
+            const Cu25519Sec &rx2, Cu25519Ris *sender, int *nrx)
 {
 	std::ifstream is(iname, is.binary);
 	if (!is) {

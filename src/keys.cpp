@@ -109,7 +109,7 @@ void list_key(const Key &k, std::ostream &os, bool pubonly, bool sigs,
 			encode_key(k.sigs[i].signer.b, 32, enc, true, kenc);
 			const Key *kp = NULL;
 			if (kl1) {
-				kp = find_key(*kl1, k.sigs[i].signer);
+				kp = find_key (*kl1, k.sigs[i].signer);
 				if (kp == 0 && kl2) {
 					kp = find_key(*kl2, k.sigs[i].signer);
 				}
@@ -459,7 +459,7 @@ void write_keys(std::ostream &os, const Key_list &kl, bool pubonly)
 }
 
 
-void generate_master_from_secret(const uint8_t priv[32], const char *name, Key *key)
+void generate_master_from_secret (const uint8_t priv[32], const char *name, Key *key)
 {
 	key->clear();
 	memcpy (key->pair.xs.b, priv, 32);
@@ -473,7 +473,7 @@ void generate_master_from_secret(const uint8_t priv[32], const char *name, Key *
 
 	uint8_t hash[64];
 	hash_key(*key, hash);
-	cu25519_sign (ksigh, hash, 64, key->pair, key->self_signature);
+	cu25519_sign (ksigh, hash, 64, key->pair.xp, key->pair.xs, key->self_signature);
 }
 
 void generate_master_key(const uint8_t priv[32], const char *name, Key *key)
@@ -490,7 +490,7 @@ void generate_master_key(const uint8_t priv[32], const char *name, Key *key)
 
 	uint8_t hash[64];
 	hash_key(*key, hash);
-	cu25519_sign (ksigh, hash, 64, key->pair, key->self_signature);
+	cu25519_sign (ksigh, hash, 64, key->pair.xp, key->pair.xs, key->self_signature);
 }
 
 
@@ -509,11 +509,11 @@ void generate_work_key (const uint8_t priv[32], const char *name, Key *key, cons
 	uint8_t hash[64];
 	hash_key(*key, hash);
 
-	cu25519_sign (ksigh, hash, 64, key->pair, key->self_signature);
+	cu25519_sign (ksigh, hash, 64, key->pair.xp, key->pair.xs, key->self_signature);
 
 	Signature s;
 	memcpy (s.signer.b, master.pair.xp.b, 32);
-	cu25519_sign (ksigh, hash, 64, master.pair, s.signature);
+	cu25519_sign (ksigh, hash, 64, master.pair.xp, master.pair.xs, s.signature);
 	key->sigs.push_back(s);
 }
 
@@ -708,7 +708,7 @@ void change_name(Key_list &kl, const std::vector<std::string> &selected, const c
 				i->name = new_name;
 				uint8_t hash[64];
 				hash_key(*i, hash);
-				cu25519_sign (ksigh, hash, 64, i->pair, i->self_signature);
+				cu25519_sign (ksigh, hash, 64, i->pair.xp, i->pair.xs, i->self_signature);
 				break;
 			}
 		}
@@ -817,7 +817,7 @@ int sign_keys(Key_list &kl, const Key &signer, const std::vector<std::string> &s
 				memcpy(s.signer.b, signer.pair.xp.b, 32);
 				uint8_t hash[64];
 				hash_key(*i, hash);
-				cu25519_sign (ksigh, hash, 64, signer.pair, s.signature);
+				cu25519_sign (ksigh, hash, 64, signer.pair.xp, signer.pair.xs, s.signature);
 				i->sigs.push_back(s);
 			}
 		}
@@ -850,7 +850,7 @@ int sign_keys(Key_list &kl, const Key &signer)
 		memcpy(s.signer.b, signer.pair.xp.b, 32);
 		uint8_t hash[64];
 		hash_key(*i, hash);
-		cu25519_sign (ksigh, hash, 64, signer.pair, s.signature);
+		cu25519_sign (ksigh, hash, 64, signer.pair.xp, signer.pair.xs, s.signature);
 		i->sigs.push_back(s);
 		++i;
 	}
@@ -884,7 +884,7 @@ int remove_signature(Key_list &kl, const char *signer, const std::vector<std::st
 }
 
 
-const Key * find_key(const Key_list &kl, const Cu25519Pub &pub)
+const Key * find_key (const Key_list &kl, const Cu25519Ris &pub)
 {
 	Key_list::const_iterator i = kl.begin();
 	Key_list::const_iterator e = kl.end();
@@ -899,7 +899,7 @@ const Key * find_key(const Key_list &kl, const Cu25519Pub &pub)
 
 
 
-void find_key_name(const Key_list &kl, const Cu25519Pub &pub, std::string &name, Key_encoding kenc)
+void find_key_name (const Key_list &kl, const Cu25519Ris &pub, std::string &name, Key_encoding kenc)
 {
 	if (is_zero(pub.b, 32)) {
 		name = _("Anonymous");

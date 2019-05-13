@@ -606,6 +606,112 @@ int decrypt_multi (uint8_t *m, const uint8_t *cipher, size_t clen,
 }
 
 
+size_t encrypt_packet (uint8_t *ct, const uint8_t *m, size_t mlen,
+                       uint64_t uval, size_t padlen,
+                       const Chakey &ke, uint64_t nonce,
+                       const Chakey *ka, size_t nka,
+                       const uint8_t *ad, size_t alen)
+{
+	Chacha cha (ke, nonce, 0);
+	uint8_t valbytes[10];
+	int vlen = write_uleb (uval, valbytes);
+	cha.doxor (ct, valbytes, vlen);
+	cha.doxor (ct + vlen, m, mlen);
+	cha.copy (ct + vlen + mlen, padlen);
+
+	poly1305_context poc;
+	// For each authentication key, compute the Poly1305 tag and append it to
+	// the resulting ciphertext.
+	uint64_t block_number = 0;
+	// Create the poly key using the last blocks. We use a different block
+	// for each key because keys could have been repeated and then the tags
+	// would be identical. The first block is zero to be compatible with
+	// existing implementations.
+	size_t ctlen = vlen + mlen + padlen;
+	for (unsigned i = 0; i < nka; ++i) {
+		uint8_t stream[64];
+		chacha20 (stream, ka[i], nonce, block_number--);
+		poly1305_init (&poc, stream);
+		if (alen != 0) {
+			poly1305_update (&poc, ad, alen);
+			poly1305_pad16 (&poc, alen);
+		}
+		poly1305_update (&poc, ct, ctlen);
+		poly1305_pad16 (&poc, ctlen);
+		poly1305_update (&poc, alen);
+		poly1305_update (&poc, ctlen);
+		poly1305_finish (&poc, ct + ctlen + i*16);
+	}
+	return ctlen + nka * 16;
+}
+
+
+int decrypt_packet (uint8_t *m, size_t *msglen, uint64_t *u,
+                    const uint8_t *cipher, size_t clen, size_t padlen,
+                    const Chakey &ke, uint64_t nonce,
+                    const Chakey *ka, size_t nka, size_t ika,
+                    const uint8_t *ad, size_t alen)
+{
+	if (clen < nka*16 + 1) return -1;
+	size_t mlen = clen - nka*16;
+
+	uint8_t stream[64];
+	Janitor jan(stream, sizeof stream);
+
+	uint64_t block_number = 0;
+	block_number -= ika;
+	chacha20 (stream, *ka, nonce, block_number);
+
+	poly1305_context poc;
+	poly1305_init (&poc, stream);
+	if (alen != 0) {
+		poly1305_update (&poc, ad, alen);
+		poly1305_pad16 (&poc, alen);
+	}
+	poly1305_update (&poc, cipher, mlen);
+	poly1305_pad16 (&poc, mlen);
+	poly1305_update (&poc, alen);
+	poly1305_update (&poc, mlen);
+
+	uint8_t tag[16];
+	poly1305_finish (&poc, tag);
+
+	if (crypto_neq(tag, cipher + mlen + ika*16, 16)) return -1;
+
+	Chacha cha (ke, nonce, 0);
+	enum { prefix_bytes = 10 };
+	uint8_t valbytes[prefix_bytes];
+	cha.doxor (valbytes, cipher, prefix_bytes);
+	int nvalbytes = read_uleb (u, valbytes);
+
+	// Guard against overflows.
+
+	if (padlen + nvalbytes > mlen) return -1;
+
+	size_t rest = prefix_bytes - nvalbytes;
+	size_t payload_len = mlen - padlen - nvalbytes;
+	*msglen = payload_len;
+
+	if (payload_len <= rest) {
+		memcpy (m, valbytes + nvalbytes, payload_len);
+	} else if (payload_len > rest) {
+		memcpy (m, valbytes + nvalbytes, rest);
+		cha.doxor (m + rest, cipher + prefix_bytes, payload_len - rest);
+	}
+	return 0;
+}
+
+
+int peek_head (uint64_t *uval, const uint8_t ct[10], const Chakey &ke, uint64_t nonce)
+{
+	uint8_t pt[10];
+	Chacha cha (ke, nonce, 0);
+	cha.doxor (pt, ct, 10);
+	if (read_uleb (uval, pt) < 0) return -1;
+	return 0;
+}
+
+
 
 
 // PBKDF2 using blake2s. Generation of 32 byte chunk of the key.

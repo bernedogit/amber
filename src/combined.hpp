@@ -1,7 +1,7 @@
 #ifndef AMBER_COMBINED_HPP
 #define AMBER_COMBINED_HPP
 
-/* Copyright (c) 2015-2017, Pelayo Bernedo.
+/* Copyright (c) 2015-2019, Pelayo Bernedo.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -68,7 +68,7 @@ void pub_encrypt(const char *iname, const char *oname, const Key &sender,
 // Pass the key of the receiver and it will return the public key of the sender.
 EXPORTFN
 void pub_decrypt(const char *iname, const char *oname, const Key &rx,
-                 Cu25519Pub &sender, int *nrx, bool verbose);
+                 Cu25519Ris &sender, int *nrx, bool verbose);
 
 // Create an encrypted file that looks like it was sent by the first key in
 // sender_dummies to the key of rx. Rx must have the private key available.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Pelayo Bernedo.
+ * Copyright (c) 2017-2019, Pelayo Bernedo.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -388,6 +388,54 @@ int sqrt (Fe &res, const Fe &z)
 	return not_zero (bytes, 32);
 }
 
+inline int ct_is_zero (const Fe &u)
+{
+	Fe v = u;
+	uint8_t d[32];
+	reduce_store (d, v);
+	return is_zero (d, 32);
+}
+
+
+// Compute res = sqrt(u/v) and return zero or res = sqrt(iu/v) and return
+// 1. If u/v is not a square then iu/v is a square. i = sqrt(-1).
+int sqrt_ratio_m1 (Fe &res, const Fe &u, const Fe &v)
+{
+	Fe v3, v7, r, check;
+	square (v3, v);
+	mul (v3, v3, v);
+	square (v7, v3);
+	mul (v7, v7, v);
+	mul (r, u, v7);
+	raise_252_3 (r, r);
+	mul (r, r, v3);
+	mul (r, r, u);
+	square (check, r);
+	mul (check, check, v);
+
+	Fe tmp;
+	sub (tmp, check, u);
+	int correct_sign_sqrt = ct_is_zero (tmp);
+	add (tmp, check, u);
+	int flipped_sign_sqrt = ct_is_zero (tmp);
+	mul (tmp, u, root_minus_1);
+	add (tmp, tmp, check);
+	int flipped_sign_sqrt_i = ct_is_zero (tmp);
+
+	Fe r_prime;
+	mul (r_prime, root_minus_1, r);
+	select (r, r_prime, r, flipped_sign_sqrt | flipped_sign_sqrt_i);
+
+	negate (tmp, r);
+	uint8_t sc[32];
+	reduce_store (sc, r);
+	select (res, tmp, r, sc[0] & 1);
+
+	return 1 ^ (correct_sign_sqrt | flipped_sign_sqrt);
+}
+
+
+
 void raise_253_5 (Fe &res, const Fe &z)
 {
 	Fe t1, t2;
@@ -418,7 +466,7 @@ enum { A = 486662 };
 
 // Input x coordinate of point P and scalar. Output x2:z2 x coordinate of
 // scalar*P and x3:z3 x coordinate of (scalar+1)*P. Works for any scalar.
-void montgomery_ladder (Fe &x2, Fe &z2, Fe &x3, Fe &z3, const Fe &x1, const uint8_t scalar[32])
+static void montgomery_ladder (Fe &x2, Fe &z2, Fe &x3, Fe &z3, const Fe &x1, const uint8_t scalar[32], int startbit=255)
 {
 	x2 = feone;
 	z2 = fezero;
@@ -427,7 +475,7 @@ void montgomery_ladder (Fe &x2, Fe &z2, Fe &x3, Fe &z3, const Fe &x1, const uint
 	Fe t1, t2, t3, t4, t5, t6, t7, t8, t9;
 	// Are 2 and 3 swapped?
 	uint32_t swapped = 0;
-	for (int i = 254; i >= 0; --i) {
+	for (int i = startbit; i >= 0; --i) {
 		uint32_t current = (scalar[i/8] >> (i & 7)) & 1;
 		uint32_t flag = current ^ swapped;
 		cswap (x2, x3, flag);
@@ -469,6 +517,13 @@ void montgomery_ladder (Fe &res, const Fe &xp, const uint8_t scalar[32])
 	invert (z2, z2);
 	mul (res, x2, z2);
 }
+
+void montgomery_ladder (Fe &u, Fe &z, const Fe &xp, const uint8_t scalar[32], int startbit)
+{
+	Fe x3, z3;
+	montgomery_ladder (u, z, x3, z3, xp, scalar, startbit);
+}
+
 
 
 // Montgomery ladder with recovery of projective X:Y:Z coordinates.
@@ -672,13 +727,15 @@ static const uint8_t pm12[32] = {
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x3f
 };
 
-// Return 1 if v > lim. Return 0 otherwise.
+// Return 1 if v > lim. Return 0 otherwise. Constant time.
 uint32_t gt_than (const uint8_t v[32], const uint8_t lim[32])
 {
 	unsigned equal = 1;
 	unsigned gt = 0;
 	for (int i = 31; i >= 0; --i) {
+		// This will be set if everything was equal until now and v[i]>lim[i].
 		gt |= ((lim[i] - v[i]) >> 8) & equal;
+		// Equal will be cleared when we encounter a difference.
 		equal &= ((lim[i] ^ v[i]) - 1) >> 8;
 	}
 	return gt;

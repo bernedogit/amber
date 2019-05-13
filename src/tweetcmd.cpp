@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Pelayo Bernedo.
+ * Copyright (c) 2015-2019, Pelayo Bernedo.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -150,7 +150,6 @@ static void encrypt (const char *iname, const char *oname, const char *pass, int
 	leput32 (blocks + 4, bf);
 	encrypt_multi (enc, blocks, sizeof blocks, NULL, 0, kw, &kw, 1, 0);
 	os.write ((char*)enc, sizeof enc);
-
 	encrypt (is, os, kw, 1, bs, bf, &kw, 1);
 }
 
@@ -396,7 +395,7 @@ void base58dec(const char *s, std::vector<uint8_t> &res, size_t n)
 }
 
 
-void compute_key (const char *pass, Cu25519Sec *xs, Cu25519Pub *xp)
+void compute_key (const char *pass, Cu25519Sec *xs, Cu25519Ris *xp)
 {
 	blake2b (xs->b, 32, NULL, 0, pass, strlen(pass));
 	cu25519_generate (xs, xp);
@@ -406,8 +405,8 @@ void compute_key (const char *pass, Cu25519Sec *xs, Cu25519Pub *xp)
 
 // Write in buf the noise message for a X handshake. The payload is symk. It
 // returns the filled buffer and the symmetric key ka.
-void create_noise_x (const Cu25519Sec &txs, const Cu25519Pub &txp,
-                     const Cu25519Pub &rx, uint8_t ran[32],
+void create_noise_x (const Cu25519Sec &txs, const Cu25519Ris &txp,
+                     const Cu25519Ris &rx, uint8_t ran[32],
                      const uint8_t symk[33], uint8_t buf[129], Chakey *ka)
 {
 	uint8_t ck[32], h[32], k[32];
@@ -417,8 +416,8 @@ void create_noise_x (const Cu25519Sec &txs, const Cu25519Pub &txp,
 
 	// e
 	Cu25519Sec es;
-	Cu25519Pub ep;
-	Cu25519Rep er;
+	Cu25519Mon ep;
+	Cu25519Ell er;
 	memcpy (es.b, ran, 32);
 	cu25519_elligator2_gen (&es, &ep, &er);
 	memcpy (buf, er.b, 32);
@@ -452,7 +451,7 @@ void create_noise_x (const Cu25519Sec &txs, const Cu25519Pub &txp,
 // Parse the noise X message in buf and retrieve the payload to symk, the
 // session key to ka and the sender to tx.
 int parse_noise_x (const uint8_t buf[129], const Cu25519Sec &xs,
-                   const Cu25519Pub &xp, Cu25519Pub *tx, uint8_t symk[33],
+                   const Cu25519Ris &xp, Cu25519Ris *tx, uint8_t symk[33],
                    Chakey *ka)
 {
 	uint8_t ck[32], h[32], k[32];
@@ -461,8 +460,8 @@ int parse_noise_x (const uint8_t buf[129], const Cu25519Sec &xs,
 	mix_hash (h, xp.b, 32);  // rs
 
 	// e
-	Cu25519Pub ep;
-	Cu25519Rep er;
+	Cu25519Mon ep;
+	Cu25519Ell er;
 	memcpy (er.b, buf, 32);
 	cu25519_elligator2_rev (&ep, er);
 	mix_hash (h, er.b, 32);
@@ -497,8 +496,8 @@ int parse_noise_x (const uint8_t buf[129], const Cu25519Sec &xs,
 }
 
 
-void encrypt (const char *iname, const char *oname, const Cu25519Sec &sendxs, const Cu25519Pub &sendxp,
-              const Cu25519Pub *vrx, size_t nrx, int block_size, int block_filler)
+void encrypt (const char *iname, const char *oname, const Cu25519Sec &sendxs, const Cu25519Ris &sendxp,
+              const Cu25519Ris *vrx, size_t nrx, int block_size, int block_filler)
 {
 	std::ifstream is (iname, is.binary);
 	std::ofstream os (oname, os.binary);
@@ -542,7 +541,7 @@ void encrypt (const char *iname, const char *oname, const Cu25519Sec &sendxs, co
 
 
 void decrypt (const char *iname, const char *oname, const Cu25519Sec &xs,
-              const Cu25519Pub &xp, Cu25519Pub *sender)
+              const Cu25519Ris &xp, Cu25519Ris *sender)
 {
 	std::ifstream is (iname, is.binary);
 	std::ofstream os (oname, os.binary);
@@ -650,7 +649,7 @@ static const char sig_h1[] = { 0x06, 0x6D, 0x0A, 0x20 };
 static const char sig_h2[] = { 0x12, 0x40 };
 static const char sig_h3[] = { 0x41 };
 
-void sign (const char *iname, const char *oname, const Cu25519Sec &xs, const Cu25519Pub &xp)
+void sign (const char *iname, const char *oname, const Cu25519Sec &xs, const Cu25519Ris &xp)
 {
 	std::ifstream is (iname, is.binary);
 	std::ofstream os (oname, os.binary);
@@ -730,7 +729,7 @@ void verify (const char *iname, const char *sname)
 		return;
 	}
 
-	Cu25519Pub xp;
+	Cu25519Ris xp;
 	memcpy (xp.b, sigbuf + sizeof sig_h1, 32);
 
 	if (memcmp (sigbuf + sizeof sig_h1 + 32, sig_h2, sizeof sig_h2) != 0) {
@@ -796,7 +795,7 @@ int real_main (int argc, char **argv)
 	enum { symenc, symdec, pubenc, pubdec, showid, pubsig, pubver, nothing } op = nothing;
 	int shifts = 14;
 	int block_size = -1, block_filler = -1;
-	std::vector<Cu25519Pub> vrx;
+	std::vector<Cu25519Ris> vrx;
 	std::vector<uint8_t> decn;
 
 	int opt;
@@ -847,7 +846,7 @@ int real_main (int argc, char **argv)
 		case 'r':
 			base58dec (val, decn, 1000);
 			if (decn.size() == 32) {
-				Cu25519Pub tmp;
+				Cu25519Ris tmp;
 				memcpy (tmp.b, &decn[0], 32);
 				vrx.push_back (tmp);
 			} else {
@@ -878,7 +877,7 @@ int real_main (int argc, char **argv)
 	}
 
 	Cu25519Sec xs;
-	Cu25519Pub xp, txp;
+	Cu25519Ris xp, txp;
 	std::string id;
 
 	switch (op) {
@@ -938,4 +937,5 @@ int main (int argc, char **argv)
 		return -1;
 	}
 }
+
 

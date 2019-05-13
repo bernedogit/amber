@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, P. Bernedo.
+ * Copyright (c) 2017-2019, P. Bernedo.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -180,9 +180,12 @@ void scrypt_blake2b (uint8_t *dk, size_t dklen,
 EXPORTFN void randombytes_buf (void *buf, size_t n);
 
 
-struct Cu25519Sec { uint8_t b[32]; };   // The scalar.
-struct Cu25519Pub { uint8_t b[32]; };   // Point in Montgomery X format.
-struct Cu25519Rep { uint8_t b[32]; };   // Elligator representative.
+struct Cu25519Sec { uint8_t b[32]; };   // The secret scalar.
+struct Cu25519Mon { uint8_t b[32]; };   // Point in Montgomery X format.
+struct Cu25519Ell { uint8_t b[32]; };   // Elligator representative.
+struct Cu25519Ris { uint8_t b[32]; };   // Ristretto point
+
+
 
 inline void mask_scalar (uint8_t scb[32])
 {
@@ -191,26 +194,31 @@ inline void mask_scalar (uint8_t scb[32])
 	scb[31] |= 0x40;   // Set the most significant bit.
 }
 
-EXPORTFN void cu25519_generate (Cu25519Sec *xs, Cu25519Pub *xp);
+EXPORTFN void cu25519_generate (Cu25519Sec *xs, Cu25519Mon *xp);
+EXPORTFN void cu25519_generate (Cu25519Sec *xs, Cu25519Ris *xp);
 
 // You must use mix_key() to convert the shared secret to a key. Best used
-// with one of the Noise protocol patterns.
+// with one of the Noise protocol patterns. If the Montgomery representation
+// and the Ristretto representation were generated from the same scalar,
+// these routines will produce the same shared secret.
 EXPORTFN
-void cu25519_shared_secret (uint8_t sh[32], const Cu25519Pub &xp, const Cu25519Sec &xs);
+void cu25519_shared_secret (uint8_t sh[32], const Cu25519Mon &xp, const Cu25519Sec &xs);
+EXPORTFN
+void cu25519_shared_secret (uint8_t sh[32], const Cu25519Ris &xp, const Cu25519Sec &xs);
 
 EXPORTFN
 void cu25519_sign (const char *prefix, const uint8_t *m, size_t mlen,
-                   const Cu25519Pub &xp, const Cu25519Sec &xs,
+                   const Cu25519Ris &xp, const Cu25519Sec &xs,
                    uint8_t sig[64]);
 EXPORTFN
 int cu25519_verify (const char *prefix, const uint8_t *m, size_t mlen,
-                    const uint8_t sig[64], const Cu25519Pub &xp);
+                    const uint8_t sig[64], const Cu25519Ris &xp);
 
 EXPORTFN
-void cu25519_elligator2_gen (Cu25519Sec *xs, Cu25519Pub *xp, Cu25519Rep *rep);
+void cu25519_elligator2_gen (Cu25519Sec *xs, Cu25519Mon *xp, Cu25519Ell *rep);
 
 EXPORTFN
-void cu25519_elligator2_rev (Cu25519Pub *u, const Cu25519Rep & rep);
+void cu25519_elligator2_rev (Cu25519Mon *u, const Cu25519Ell & rep);
 
 
 
@@ -330,6 +338,10 @@ inline uint32_t leget32(const unsigned char *p)
 	 ((uint32_t)(p[2]) << 16) |
 	 ((uint32_t)(p[3]) << 24));
 }
+
+void encrypt_uint32 (uint8_t enc[4], const Chakey &ke, uint64_t nonce, uint32_t val);
+uint32_t decrypt_uint32 (const uint8_t enc[4], const Chakey &ke, uint64_t nonce);
+
 
 }}
 

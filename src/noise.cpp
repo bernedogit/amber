@@ -293,13 +293,13 @@ void Handshake::set_s (const Cu25519Pair &pair, bool known)
 	s_known = known;
 }
 
-void Handshake::set_known_rs (const Cu25519Pub &xp)
+void Handshake::set_known_rs (const Cu25519Ris &xp)
 {
 	rs_pub = xp;
 	rs_set = true;
 }
 
-void Handshake::set_known_re (const Cu25519Pub &xp)
+void Handshake::set_known_re (const Cu25519Mon &xp)
 {
 	re_pub = xp;
 	re_set = true;
@@ -337,7 +337,7 @@ void Handshake::write_message (const uint8_t *pay, size_t npay, std::vector<uint
 				randombytes_buf (e_sec.b, 32);
 			}
 			if (elligated) {
-				Cu25519Rep rep;
+				Cu25519Ell rep;
 				cu25519_elligator2_gen (&e_sec, &e_pub, &rep);
 				append (out, rep.b, 32);
 				mix_hash (rep.b, 32);
@@ -458,7 +458,7 @@ int Handshake::read_message (const uint8_t *msg, size_t n, std::vector<uint8_t> 
 		case e:
 			if (n < 32) return -1;
 			if (elligated) {
-				Cu25519Rep rep;
+				Cu25519Ell rep;
 				memcpy (rep.b, msg, 32);
 				cu25519_elligator2_rev (&re_pub, rep);
 			} else {

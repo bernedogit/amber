@@ -33,9 +33,9 @@
 void test()
 {
 	twamber::Cu25519Sec txs1, txs2;
-	twamber::Cu25519Pub txp1, txp2;
+	twamber::Cu25519Mon txp1, txp2;
 	amber::Cu25519Sec axs1, axs2;
-	amber::Cu25519Pub axp1, axp2;
+	amber::Cu25519Mon axp1, axp2;
 
 	twamber::randombytes_buf (txs1.b, 32);
 	cu25519_generate (&txs1, &txp1);
@@ -88,8 +88,8 @@ void test()
 		std::cout << "error in cu25519_verify.\n";
 	}
 
-	amber::Cu25519Rep ar;
-	twamber::Cu25519Rep tr;
+	amber::Cu25519Ell ar;
+	twamber::Cu25519Ell tr;
 	cu25519_elligator2_gen (&axs1, &axp1, &ar);
 	cu25519_elligator2_gen (&txs1, &txp1, &tr);
 	if (memcmp (axs1.b, txs1.b, 32) != 0) {
@@ -104,8 +104,8 @@ void test()
 		std::cout << "error in elligator_gen r\n";
 	}
 
-	amber::Cu25519Pub aru;
-	twamber::Cu25519Pub tru;
+	amber::Cu25519Mon aru;
+	twamber::Cu25519Mon tru;
 	cu25519_elligator2_rev (&aru, ar);
 	cu25519_elligator2_rev (&tru, tr);
 

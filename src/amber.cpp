@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2017, Pelayo Bernedo.
+ * Copyright (C) 2015-2019, Pelayo Bernedo.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -812,6 +812,7 @@ int real_main(int argc, char **argv)
 				get_password(_("Password: "), password);
 			}
 			blake2b (ringless_key.pair.xs.b, 32, NULL, 0, password.c_str(), password.size());
+show_block (std::cout, "seed", ringless_key.pair.xs.b, 32);			
 			cu25519_generate (&ringless_key.pair);
 			encode_key(ringless_key.pair.xp.b, 32, ringless_key.enc, false);
 			ringless_key.name = _("Password based key");
@@ -1129,7 +1130,7 @@ int real_main(int argc, char **argv)
 			if (argc != 3) {
 				throw_rte(_("Usage is --dohidek <rx2> bogus real"));
 			}
-			std::vector<Cu25519Pub> rx(selected_list.size());
+			std::vector<Cu25519Ris> rx(selected_list.size());
 			for (unsigned i = 0; i < selected_list.size(); ++i) {
 				rx[i] = selected_list[i].pair.xp;
 			}
@@ -1172,7 +1173,7 @@ int real_main(int argc, char **argv)
 			return -1;
 		}
 		std::string info;
-		Cu25519Pub sender;
+		Cu25519Ris sender;
 
 		if (pack_list) {
 			for (int i = 1; i < argc; ++i) {

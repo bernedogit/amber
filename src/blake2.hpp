@@ -67,7 +67,7 @@ struct EXPORTFN Blake2s_param {
 	uint8_t  personal[8];   // 32
 
 	Blake2s_param()
-		: digest_length (64)
+		: digest_length (32)
 		, key_length (0)
 		, fanout (1)
 		, depth (1)
@@ -255,7 +255,7 @@ public:
 	void output (uint8_t *dest);
 };
 
-}}
+}}                         
 
 #endif
 

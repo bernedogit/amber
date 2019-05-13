@@ -1,4 +1,4 @@
-/* Copyright (C) 2012-2016 Pelayo Bernedo.
+/* Copyright (C) 2012-2019 Pelayo Bernedo.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

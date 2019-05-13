@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Pelayo Bernedo.
+ * Copyright (c) 2015-2019, Pelayo Bernedo.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
