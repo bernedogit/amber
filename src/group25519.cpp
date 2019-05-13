@@ -2319,7 +2319,7 @@ int cu25519_shared_secret_cof (uint8_t res[32], const Cu25519Ris &A, const Cu255
 }
 
 
-// Verify a ristretto signature using qdsa, no montgomery.
+// Verify a ristretto signature using qdsa, no Edwards arithmetic.
 int ristretto_qdsa_verify (const char *prefix, const uint8_t *m, size_t mlen,
                            const uint8_t sig[64], const Cu25519Ris &A)
 {
