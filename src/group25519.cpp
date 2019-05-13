@@ -2258,8 +2258,13 @@ void cu25519_generate (Cu25519Sec *scalar, Cu25519Ris *ris)
 	edwards_to_ristretto (ris->b, p);
 }
 
-// From the decaf paper. Use u = s² as input to the ladder. Then clear the
-// cofactor (done implicitly by requiring that scalar is a multiple of 8).
+// From the decaf paper: The Montgomery u corresponding to the Ristretto
+// representative s is 1/s². We would need to perform an inversion for
+// this. However note that both u = 1/s² and 1/u = s² belong to the same
+// coset: the set of points differing only by a small order point.
+// Therefore we use u = s² as input to the ladder and then clear the
+// small order component by multiplying by the cofactor. We require that the
+// scalar is a multiple of 8 for this function.
 static int ristretto_ladder_imp (uint8_t res[32], const Cu25519Ris &A, const uint8_t scalar[32], int startbit=254)
 {
 	// s must be even for valid ristretto encodings.
@@ -2284,11 +2289,13 @@ static int ristretto_ladder_imp (uint8_t res[32], const Cu25519Ris &A, const uin
 	return 0;
 }
 
+// The scalar must be a multiple of eight.
 int cu25519_shared_secret (uint8_t res[32], const Cu25519Ris &A, const Cu25519Sec &scalar)
 {
 	return ristretto_ladder_imp (res, A, scalar.b);
 }
 
+// Multiply the scalar by eight.
 inline void shift8_scalar (uint8_t newsc[33], const uint8_t oldsc[32])
 {
 	int bits = 0;
@@ -2300,7 +2307,8 @@ inline void shift8_scalar (uint8_t newsc[33], const uint8_t oldsc[32])
 	newsc[32] = bits;
 }
 
-// Works with any scalar. If first multiplies the scalar by 8.
+// Works with any scalar. If first multiplies the scalar by 8 and then
+// performs the scalar multiplication.
 int cu25519_shared_secret_cof (uint8_t res[32], const Cu25519Ris &A, const Cu25519Sec &scalar)
 {
 	uint8_t nsc[33];
