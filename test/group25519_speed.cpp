@@ -1,4 +1,4 @@
-/*
+/*                         
  * Copyright (c) 2015-2018, Pelayo Bernedo
  * All rights reserved.
  *
@@ -71,12 +71,29 @@ std::ostream & operator<<(std::ostream &os, const std::chrono::duration<R,P> &du
 typedef std::chrono::steady_clock Clock;
 
 
+bool point_equal (const Edwards &p1, const Edwards &p2)
+{
+	Fe z1, z2;
+	invert (z1, p1.z);
+	invert (z2, p2.z);
+	Fe x1, y1, x2, y2;
+	mul (x1, p1.x, z1);
+	mul (x2, p2.x, z2);
+	mul (y1, p1.y, z1);
+	mul (y2, p2.y, z2);
+	sub (x1, x1, x2);
+	sub (y1, y1, y2);
+	return ct_is_zero (x1) && ct_is_zero (y1);
+}
+
+
 void measure(int n)
 {
 	Clock::time_point t1, t2;
 	unsigned char shs1[32], shs2[32];
 	Cu25519Sec x1s, x2s, x3s;
 	Cu25519Mon x1m, x2m, x3m;
+	Cu25519Ris x1r, x2r;
 	Cu25519Ell ell;
 
 	randombytes_buf (x1s.b, 32);
@@ -92,11 +109,19 @@ void measure(int n)
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
+		cu25519_generate (&x1s, &x1r);
+		cu25519_generate (&x2s, &x2r);
+	}
+	t2 = Clock::now();
+	format(std::cout, "cu25519 Ristretto key generation: %d\n", (t2 - t1)/n/2);
+
+	t1 = Clock::now();
+	for (int i = 0; i < n; ++i) {
 		cu25519_generate (&x1s, &x1m);
 		cu25519_generate (&x2s, &x2m);
 	}
 	t2 = Clock::now();
-	format(std::cout, "cu25519 key generation: %d\n", (t2 - t1)/n/2);
+	format(std::cout, "cu25519 Montgomery key generation: %d\n", (t2 - t1)/n/2);
 
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
@@ -296,6 +321,46 @@ void measure(int n)
 	}
 	t2 = Clock::now();
 	std::cout << "ristretto_to_edwards: " << (t2 - t1)/n << '\n';
+
+	t1 = Clock::now();
+	for (int i = 0; i < n; ++i) {
+		ristretto_to_mont (rsdec, ru, rv, rs);
+	}
+	t2 = Clock::now();
+	std::cout << "ristretto_to_mont: " << (t2 - t1)/n << '\n';
+
+	Edwards sm1, sm2;
+	t1 = Clock::now();
+	for (int i = 0; i < n; ++i) {
+		ristretto_to_mont (rsdec, ru, rv, rs);
+		montgomery_ladder (sm1, ru, rv, rs);
+	}
+	t2 = Clock::now();
+	std::cout << "ristretto_to_mont, ladder: " << (t2 - t1)/n << '\n';
+
+	t1 = Clock::now();
+	for (int i = 0; i < n; ++i) {
+		ristretto_to_edwards (rsdec, rs);
+		scalarmult_fw (sm2, rsdec, rs);
+	}
+	t2 = Clock::now();
+	std::cout << "ristretto_to_edwards, fw: " << (t2 - t1)/n << '\n';
+
+	if (!point_equal (sm1, sm2)) {
+		format (std::cout, "rsmont, ladder and rsed, fw differ\n");
+	}
+
+	t1 = Clock::now();
+	for (int i = 0; i < n; ++i) {
+		ristretto_to_edwards (rsdec, rs);
+		scalarmult_wnaf (sm2, rsdec, rs);
+	}
+	t2 = Clock::now();
+	std::cout << "ristretto_to_edwards, wnaf: " << (t2 - t1)/n << '\n';
+
+	if (!point_equal (sm1, sm2)) {
+		format (std::cout, "rsmont, ladder and rsed, wnaf differ\n");
+	}
 
 
 	Cu25519Sec rsc;

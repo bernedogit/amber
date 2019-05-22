@@ -388,13 +388,6 @@ int sqrt (Fe &res, const Fe &z)
 	return not_zero (bytes, 32);
 }
 
-inline int ct_is_zero (const Fe &u)
-{
-	Fe v = u;
-	uint8_t d[32];
-	reduce_store (d, v);
-	return is_zero (d, 32);
-}
 
 
 // Compute res = sqrt(u/v) and return zero or res = sqrt(iu/v) and return
@@ -577,22 +570,21 @@ static const Fe C = { 0x1fb5500ba81e7, 0x5d6905cafa672, 0xec204e978b0, 0x4a216c2
                       0x70d9120b9f5ff };
 #endif
 
-void edwards_to_mont (Fe &u, Fe &v, const Edwards &e)
+// u = (1+y)/(1-y)  v = Cu/x
+// u = (Z+Y)/(Z-Y) v = C(Z+Y)Z/(Z-Y)/X
+void edwards_to_mont (Fe &u, Fe &v, const Edwards &p)
 {
-	// u = (Z+Y)/(Z-Y)
-	// v = CuZ/X
-	Fe t1, t2;
-	sub (t2, e.z, e.y);
-	mul (t1, t2, e.x);
-	invert (t1, t1);    // t1 = 1/(X(Z-Y))
-	add_no_reduce (u, e.z, e.y);
-	mul (u, u, t1);
-	mul (u, u, e.x);
-	mul (v, C, u);
-	mul (v, v, e.z);
-	mul (v, v, t1);
-	mul (v, v, t2);
+	Fe zmy, zmyx, inv;
+	sub (zmy, p.z, p.y);
+	mul (zmyx, zmy, p.x);
+	invert (inv, zmyx);
+	add (zmy, p.z, p.y);
+	mul (zmy, zmy, inv);    // zmy = (Z+Y)/(Z-Y)/X
+	mul (u, zmy, p.x);
+	mul (v, zmy, p.z);
+	mul (v, v, C);
 }
+
 
 void mont_to_edwards (Edwards &e, const Fe &u, const Fe &v, const Fe &z)
 {

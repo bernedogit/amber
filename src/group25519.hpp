@@ -70,7 +70,8 @@ inline void mask_scalar (uint8_t scb[32])
 
 // The sign bit is the least significant bit of the Edwards X coordinate.  We
 // use Edwards y with sign bit (eys), Montgomery x with sign bit (mxs) and
-// Ristretto.
+// Ristretto. All the transformations below require a field exponentiation
+// and take similar time with differences around 10%.
 
 // Store the point as Montgomery x with the sign bit in bit 255.
 EXPORTFN
@@ -119,12 +120,18 @@ EXPORTFN
 void mxs_to_eys (uint8_t ey[32], const uint8_t mx[32]);
 
 
-// Ristretto format.
+// Ristretto format. The following are constant time.
 
 // Encode the point p in the ristretto representation. Constant time.
 void edwards_to_ristretto (uint8_t s[32], const Edwards p);
 // Decode the ristretto representation. Return 0 if success. Constant time.
 int ristretto_to_edwards (Edwards &res, const uint8_t sc[32]);
+
+// Decode from ristretto to Edwards and Montgomery representations using a
+// single exponentiation. Return 0 on success. Constant time. This can be
+// used as direct input to the Montgomery ladder if the full point result
+// (including x or v) are required.
+int ristretto_to_mont (Edwards &ed, Fe &u, Fe &v, const uint8_t sc[32]);
 
 
 // Output the result of edwards_to_eys.
@@ -208,7 +215,7 @@ void ristretto_from_uniform (Edwards &p, const uint8_t b[64]);
 
 // SIGNATURE SCHEMES
 
-
+										
 // Signatures using qDSA and X25519 keys.
 
 // Generate a qDSA signature. The A is the public X25519 key.
@@ -312,20 +319,24 @@ struct Cu25519Pair {
 };
 
 
-// Pass as input scalar, filled with random bytes. The function will adjust
-// the scalar and will compute mon and the corresponding representative ell.
+// ELLIGATOR2. Create a representative that is undistinguishable from random.
+// Pass  as input the scalar, filled with random bytes. The function will
+// adjust  the scalar and will compute mon and the corresponding
+// representative ell.
 EXPORTFN void cu25519_elligator2_gen (Cu25519Sec *scalar, Cu25519Mon *mon, Cu25519Ell *ell);
 
-// Take a representative and convert it into a Montgomery u. The resulting
-// Montgomery u can be used only for the computation of shared secrets
+// Take an Elligator2 representative and convert it into a Montgomery u. The
+// resulting Montgomery u can be used only for the computation of shared
+// secrets.
 EXPORTFN void cu25519_elligator2_rev (Cu25519Mon *u, const Cu25519Ell & rep);
 
+
+// KEY GENERATION
 
 // Fill scalarwith random bytes and call this function. It will adjust scalar
 // and generate the corresponding public Montgomery u. The scalar will be
 // masked according to X25519.
 EXPORTFN void cu25519_generate (Cu25519Sec *scalar, Cu25519Mon *mon);
-
 
 // Fill the scalar with random bytes before calling. It will mask the scalar
 // according to the X25519 conventions and store in ris the Ristretto
@@ -336,12 +347,12 @@ void cu25519_generate (Cu25519Sec *scalar, Cu25519Ris *ris);
 EXPORTFN void cu25519_generate (Cu25519Pair *pair);
 
 
-
-// Fill scalar with random bytes before calling. Scalar can use all 256 bits.
+// Fill scalar with random bytes before calling. Scalar can use all 256 bits
+// and no masking will be performed.
 void cu25519_generate_no_mask (const Cu25519Sec &scalar, Cu25519Ris *ris);
 
 
-// Compute the shared secret. Needs hashing before use. Use mix_key() for
+// DH. Compute the shared secret. Needs hashing before use. Use mix_key() for
 // that.
 
 // From scalar and Montgomery.
@@ -352,23 +363,25 @@ inline void cu25519_shared_secret (uint8_t sh[32], const Cu25519Mon &mon,
 }
 
 
-// DH using a montgomery ladder. Works only if the scalar is a multiple of 8.
-// It reuses the montgomery ladder of X25519 and is as fast. The scalar has
-// 256 bits. Return 0 if successful, -1 if the point is not on the curve.
+// DH using a montgomery ladder and Ristretto. Works only if the scalar is a
+// multiple  of 8. It reuses the montgomery ladder of X25519 and is as fast.
+// The scalar has 256 bits. Return 0 if successful, -1 if the point is not
+// on the curve.
 int cu25519_shared_secret (uint8_t res[32], const Cu25519Ris &A, const Cu25519Sec &scalar);
 
 
 
-// DH using a montgomery ladder. If multiplies the scalar by 8 before
-// computing the product. It works for scalars that are not a multiple of 8.
-// Almost as fast as above. The scalar has 256 bits. Return 0 if successful,
-// -1 if the point is not on the curve. This test is not as exhaustive as
-// ristretto_to_edwards() because it does not care if the supplied
-// representative of the coset is the correct one.
+// DH using a montgomery ladder and Ristretto. If multiplies the scalar by 8
+// before computing the product. It works for scalars that are not a multiple
+// of 8. Almost as fast as above. The scalar has 256 bits. Return 0 if
+// successful, -1 if the point is not on the curve. This test is not as
+// exhaustive as ristretto_to_edwards() because it does not care if the
+// supplied representative of the coset is the correct one.
 int cu25519_shared_secret_cof (uint8_t res[32], const Cu25519Ris &A, const Cu25519Sec &scalar);
 
 
 
+// SIGNATURES
 
 // Ed25519 signatures using the Ristretto representation. Sign the message
 // m[0..mlen[ with the key A, sec and store the signature in sig. The prefix
@@ -384,11 +397,23 @@ void cu25519_sign (const char *prefix, const uint8_t *m, size_t mlen,
 int cu25519_verify (const char *prefix, const uint8_t *m, size_t mlen,
                     const uint8_t sig[64], const Cu25519Ris &A);
 
-// Verify a ristretto signature using qdsa, no montgomery. Return 0 on
-// success.
+// Verify a ristretto signature using qDSA and Montgomery, no Edwards
+// arithmetic. Return 0 on success.
 int ristretto_qdsa_verify (const char *prefix, const uint8_t *m, size_t mlen,
                            const uint8_t sig[64], const Cu25519Ris &A);
 
+
+// qDSA signatures using only X25519 keys. You can use existing keys for
+// signatures without any further modifications.
+inline void cu25519_sign (const char *prefix, const uint8_t *m, size_t mlen,
+                          const Cu25519Mon &A, const Cu25519Sec &sec,
+                          uint8_t sig[64]) {
+	curvesig (prefix, m, mlen, A.b, sec.b, sig);
+}
+inline int cu25519_verify (const char *prefix, const uint8_t *m, size_t mlen,
+                    const uint8_t sig[64], const Cu25519Mon &A) {
+	return curverify (prefix, m, mlen, sig, A.b);
+}
 
 
 

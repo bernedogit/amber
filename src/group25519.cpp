@@ -61,7 +61,7 @@ static const Fe edwards_2d = { 0x2b2f159, 0x1a6e509, 0x22add7a, 0x0d4141d, 0x003
 static const Fe root_minus_1 = { 0x20ea0b0, 0x186c9d2, 0x08f189d, 0x035697f, 0x0bd0c60,
                                  0x1fbd7a7, 0x2804c9e, 0x1e16569, 0x004fc1d, 0x0ae0c92 };
 
-// C = sqrt(-1)*sqrt(A+2)
+// C = sqrt(-A-2)
 static const Fe C = { 0x0ba81e7, 0x07ed540, 0x0afa672, 0x175a417, 0x0e978b0,
                       0x003b081, 0x27b91fe, 0x12885b0, 0x0b9f5ff, 0x1c36448 };
 
@@ -99,7 +99,7 @@ static const Fe edwards_2d = { 0x69b9426b2f159, 0x35050762add7a, 0x3cf44c0038052
 static const Fe root_minus_1 = { 0x61b274a0ea0b0, 0xd5a5fc8f189d, 0x7ef5e9cbd0c60,
                                  0x78595a6804c9e, 0x2b8324804fc1d };
 
-// C = sqrt(-1)*sqrt(A+2)
+// C = sqrt(-A-2)
 static const Fe C = { 0x1fb5500ba81e7, 0x5d6905cafa672, 0xec204e978b0, 0x4a216c27b91fe,
                       0x70d9120b9f5ff };
 
@@ -136,6 +136,7 @@ static void show_edwards (std::ostream &os, const char *label, const Edwards &ed
 	os << "    t: " << ed.t << '\n';
 }
 #endif
+
 
 // Store the point as Montgomery x with the sign bit in bit 255.
 /*
@@ -1976,13 +1977,6 @@ void cu25519_generate (Cu25519Pair *pair)
 
 // Ristretto support.
 
-inline int ct_is_zero (const Fe &u)
-{
-	Fe v = u;
-	uint8_t d[32];
-	reduce_store (d, v);
-	return is_zero (d, 32);
-}
 inline int ct_is_negative (const Fe &u)
 {
 	Fe v = u;
@@ -2045,7 +2039,6 @@ int ristretto_to_edwards (Edwards &res, const uint8_t sc[32])
 {
 	Fe s, ss, u1, u2, u2_sqr, v;
 	load (s, sc);
-	if (sc[0] & 1) return -1;
 
 	square (ss, s);
 	sub (u1, feone, ss);
@@ -2078,8 +2071,136 @@ int ristretto_to_edwards (Edwards &res, const uint8_t sc[32])
 
 	uint8_t yr[32];
 	reduce_store (yr, res.y);
-	return not_square | ct_is_negative (res.t) | is_zero (yr, 32);
+	return not_square | ct_is_negative (res.t) | is_zero (yr, 32) | (sc[0] & 1);
 }
+
+/* Conversion from Ristretto to Edwards and Montgomery with a single exponentiation.
+		 1 - s²
+	y = -------
+		 1 + s²
+
+						2s
+	x = abs (--------------------------)
+			 sqrt[-d(1-s²)² - (1+s²)²]
+
+check xy >= 0 && y != 0
+
+Montgomery from s:
+
+u = (1 + y)/(1 - y);
+v = Cu/x, where C = sqrt(-A-2)
+
+u = (1 + (1-s²)/(1+s²))/(1 - (1-s²)/(1+s²)) =
+  = (1 + s² + 1 - s²) / (1 + s² - 1 + s²) = 2 / (2s²) = 1/s²
+
+u = 1/s²
+
+			sqrt[-d(1-s²)² - (1+s²)²]
+v = C*abs (--------------------------)
+					  2s³
+
+
+Combine all inversions and sqrt():
+
+u₁ = 1 - s²
+u₂ = 1 + s²
+u₃ = -du₁² - u₂²
+u₄ = u₂*4s³
+
+						  1     1                1
+I = 1 / sqrt (u₃*u₄²)  = --- -------- -------------------------
+						 2s³  1 + s²  sqrt[-d(1-s²)² - (1+s²)²]
+
+x = I*u₂*4*s⁴
+v = C*I*u₂*u₃
+y = u₁*u₂*u₃*I²*4*s⁶
+u = u₂²*u₃*I²*4*s⁴
+
+-----------
+
+w₁ = I*u₂           Iu₂
+w₂ = w1*C           CIu₂
+w₃ = s²             s²
+w₄ = 2w₃            2s²
+w₅ = w₄²            4s⁴
+x = w₁*w₅           Iu₂4s⁴ = 2s/sqrt[-d(1-s²)² - (1+s²)²]
+v = w₂*u₃           CIu₂u₃ = C*sqrt[-d(1-s²)² - (1+s²)²]/2/s³
+w₆ = w₁*u₃*I*w₅     u₂u₃I²4s⁴
+y = w₆*u₁*w₃        u₁u₂u₃I²4s⁶
+u = w₆*u₂           u₂²u₃I²4s⁴
+
+*********************************/
+
+
+int ristretto_to_mont (Edwards &ed, Fe &u, Fe &v, const uint8_t sc[32])
+{
+	Fe s, u1, u2, u3, u4, I, is;
+	Fe w1, w2, w3, w4, w5, w6;
+	load (s, sc);
+
+	// w₃ = s²
+	square (w3, s);
+	// u₁ = 1 - s²
+	sub (u1, feone, w3);
+	// u₂ = 1 + s²
+	add (u2, feone, w3);
+	// u₃ = -du₁² - u₂²
+	square (u3, u1);
+	mul (u3, u3, edwards_d);
+	square (u4, u2);
+	add (u3, u3, u4);
+	negate (u3, u3);
+	// u₄ = u₂*2s³
+	mul (u4, u2, w3);
+	mul (u4, u4, s);
+	add (u4, u4, u4);
+
+	// I = 1 / sqrt (u₃*u₄²)
+	square (is, u4);
+	mul (is, is, u3);
+	int not_square = sqrt_ratio_m1 (I, feone, is);
+
+	// w₁ = I*u₂ = Iu₂
+	mul (w1, I, u2);
+	// w₂ = w1*C = CIu₂
+	mul (w2, C, w1);
+	// w₄ = 2w₃ = 2s²
+	mul_small (w4, w3, 2);
+	// w₅ = w₄² = 4s⁴
+	square (w5, w4);
+	// x = w₁*w₅ = Iu₂4s⁴ = 2s/sqrt[-d(1-s²)² - (1+s²)²]
+	mul (ed.x, w1, w5);
+	// v = w₂*u₃ = CIu₂u₃ = C*sqrt[-d(1-s²)² - (1+s²)²]/2/s³
+	mul (v, w2, u3);
+	// w₆ = w₁*u₃*I*w₅ = u₂u₃I²4s⁴
+	mul (w6, w1, u3);
+	mul (w6, w6, I);
+	mul (w6, w6, w5);
+	// y = w₆*u₁*w₃ = u₁u₂u₃I²4s⁶
+	mul (ed.y, w6, u1);
+	mul (ed.y, ed.y, w3);
+
+	// u = w₆*u₂ = u₂²u₃I²4s⁴
+	mul (u, w6, u2);
+
+	int x_is_neg = ct_is_negative(ed.x);
+	Fe xneg;
+	negate (xneg, ed.x);
+	select (ed.x, xneg, ed.x, x_is_neg);
+	// We must perform the same sign inversion for v.
+	Fe vneg;
+	negate (vneg, v);
+	select (v, vneg, v, x_is_neg);
+
+	mul (ed.t, ed.x, ed.y);
+	ed.z = feone;
+
+	uint8_t yr[32];
+	reduce_store (yr, ed.y);
+	return not_square | ct_is_negative (ed.t) | is_zero (yr, 32) | (sc[0] & 1);
+}
+
+
 
 
 

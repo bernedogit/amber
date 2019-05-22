@@ -1,4 +1,4 @@
-Tweet Amber
+Tweet Amber          
 ===========
 
 Similar to Tweet NaCl, Tweet Amber is an exercise in producing a more compact 
@@ -146,13 +146,14 @@ Store *n* random bytes in *buf*.
 
 
 	struct Cu25519Sec { uint8_t b[32]; };
-	struct Cu25519Pub { uint8_t b[32]; };
-	struct Cu25519Rep { uint8_t b[32]; };
+	struct Cu25519Mon { uint8_t b[32]; };
+	struct Cu25519Ris { uint8_t b[32]; };
+	struct Cu25519Ell { uint8_t b[32]; };
 
-These are types that represent the private key, the public key and the
-Elligator2 representative. They are all 32 bytes, but the different structs
-provide type safety and will catch any errors where the wrong key is passed
-to the functions.
+These are types that represent the private key, the public key in Montgomery 
+format, the public key in Ristretto format and the Elligator2 representative. 
+They are all 32 bytes, but the different structs provide type safety and will 
+catch any errors where the wrong key is passed to the functions.
 
 	void mask_scalar (uint8_t scb[32]);
 
@@ -171,7 +172,8 @@ will compute the corresponding public key and store it in *xp*.
 	void cu25519_shared_secret (uint8_t sh[32], const Cu25519Ris &xp, const Cu25519Sec &xs);
 	void cu25519_shared_secret (uint8_t sh[32], const Cu25519Mon &xp, const Cu25519Sec &xs);
 
-Compute the secret shared by the two keys.
+Compute the secret shared by the two keys. If Ris and Mon were created with 
+the same scalar then the result will be the same in both cases. 
 
 	void cu25519_sign (const char *prefix, const uint8_t *m, size_t mlen,
 	                   const Cu25519Ris &xp, const Cu25519Sec &xs, uint8_t sig[64]);
@@ -189,14 +191,14 @@ in *m* of length *mlen* and was produced with the private key corresponding
 to *xp*. It returns 0 if the signature is correct. The prefix is the same as
 the one passed to the signing function.
 
-	void cu25519_elligator2_gen (Cu25519Sec *xs, Cu25519Mon *xp, Cu25519Rep *rep);
+	void cu25519_elligator2_gen (Cu25519Sec *xs, Cu25519Mon *xp, Cu25519Ell *rep);
 
 Compute a public key and its elligator representative. Fill *xs* with random
 bytes and call this function. It will adjust *xs* and will store in *xp* the
 corresponding public key and in *rep* the corresponding representative. Note
 that this key can be used only for DH and not for signing.
 
-	void cu25519_elligator2_rev (Cu25519Mon *u, const Cu25519Rep & rep);
+	void cu25519_elligator2_rev (Cu25519Mon *u, const Cu25519Ell & rep);
 
 Compute the public key corresponding to the Elligator 2 representative *rep*.
 Store the result in *u*.

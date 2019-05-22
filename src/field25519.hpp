@@ -32,7 +32,7 @@
 #include <stdint.h>
 #include <iosfwd>
 #include "soname.hpp"
-
+#include "misc.hpp"              
 
 // Operations in the field modulo 2²⁵⁵ - 19.
 
@@ -230,6 +230,15 @@ EXPORTFN
 uint8_t not_zero (const uint8_t *b, size_t n);
 
 
+inline int ct_is_zero (const Fe &u)
+{
+	Fe v = u;
+	uint8_t d[32];
+	reduce_store (d, v);
+	return is_zero (d, 32);
+}
+
+
 // The Montgomery ladder ignores bit 255 and works with bits 0-254 of the
 // scalar. X25519 requires that bit 254 is always set and bits 0-2 are
 // cleared. These routines work with anything. In X25519 bits 0-2 are cleared
@@ -279,11 +288,12 @@ void montgomery_base (Edwards &e, const uint8_t scalar[32]);
 EXPORTFN
 void montgomery_base (Fe &u, Fe &v, const uint8_t scalar[32]);
 
-// Directly store as mx with ex sign bit.
+// Directly store as the montgomery u coordinate with the sign bit of the
+// Edwards x coordinate.
 EXPORTFN
 void montgomery_base (uint8_t mx[32], const uint8_t scalar[32]);
 
-// Full conversion.
+// Full conversion between Montgomery and Edwards.
 EXPORTFN
 void edwards_to_mont (Fe &u, Fe &v, const Edwards &e);
 EXPORTFN
@@ -332,7 +342,7 @@ inline void add_no_reduce (Fe32 &res, const Fe32 &a, const Fe32 &b)
 	res.v[5] = a.v[5] + b.v[5];
 	res.v[6] = a.v[6] + b.v[6];
 	res.v[7] = a.v[7] + b.v[7];
-	res.v[8] = a.v[8] + b.v[8];
+	res.v[8] = a.v[8] + b.v[8];                   
 	res.v[9] = a.v[9] + b.v[9];
 }
 

@@ -257,17 +257,10 @@ void show_const()
 	show_raw ("sqrt(-1) raw", y);
 	sqrt_m1 = y;
 	x.v[0] = 486664;
+	negate (x, x);
 	if (sqrt(z, x) == 0) {
-		std::cout << "C = sqrt(A+2): " << z << '\n';
-		show_raw ("C = sqrt(A+2), raw", z);
-		negate (z,z);
-		show_raw ("C = sqrt(A+2), raw", z);
-
-		mul (z, z, y);
-		std::cout << "sqrt(-1)*sqrt(A+2): " << z << '\n';
-		negate (z, z);
-		std::cout << "sqrt(-1)*sqrt(A+2): " << z << '\n';
-		show_raw ("sqrt(-1)*sqrt(A+2) raw", z);
+		std::cout << "C = sqrt(-A-2): " << z << '\n';
+		show_raw ("C = sqrt(-A-2), raw", z);
 	}
 
 	// d = -121665/121666
@@ -327,6 +320,7 @@ void show_const()
 	scalarbase (e, sc);
 	pdouble (e, e);
 	pdouble (e, e);
+	std::cout << "Base point times 2^256\n";
 	show_raw ("bm.x", e.x);
 	show_raw ("bm.y", e.y);
 	show_raw ("bm.z", e.z);
@@ -516,6 +510,12 @@ static const uint8_t bad_ristretto[][32] = {
    { 0xec, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f}
 };
 
+inline bool equal (const Fe &fe1, const Fe &fe2)
+{
+	Fe diff;
+	sub (diff, fe1, fe2);
+	return ct_is_zero (diff);
+}
 
 void test_ristretto (int count)
 {
@@ -533,6 +533,38 @@ void test_ristretto (int count)
 			format (std::cout, "ristretto errc=%d\n", errc);
 			std::cout << "p1: " << p1 << '\n';
 			std::cout << "p2: " << p2 << '\n';
+		}
+
+		uint8_t rs2[32];
+		edwards_to_ristretto (rs2, p2);
+		if (memcmp (rs, rs2, 32) != 0) {
+			format (std::cout, "Wrong reencoding\n");
+		}
+		Edwards p22;
+		ristretto_to_edwards (p22, rs2);
+		uint8_t ey1[32], ey2[32];
+		edwards_to_eys (ey1, p2);
+		edwards_to_eys (ey2, p22);
+		if (memcmp (ey1, ey2, 32) != 0) {
+			format (std::cout, "Wrong redecoding\n");
+		}
+
+		Edwards p3;
+		Fe u1, v1;
+		errc = ristretto_to_mont (p3, u1, v1, rs);
+		if (errc != 0 || !equal (p3.x, p2.x) || !equal(p3.y, p2.y)) {
+			format (std::cout, "ristretto_to_mont failed, errc=%d\n", errc);
+			format (std::cout, "p2.y=%s\np3.y=%s\n", p2.y, p3.y);
+			format (std::cout, "p2.x=%s\np3.x=%s\n", p2.x, p3.x);
+		}
+		Fe u2, v2;
+		edwards_to_mont (u2, v2, p3);
+		if (!equal (u1, u2) || !equal(v1, v2)) {
+			format (std::cout, "Wrong mont conversion\n");
+			format (std::cout, "u1=%s\nu2=%s\nv1=%s\nv2=%s\n", u1, u2, v1, v2);
+			Fe nv1;
+			negate (nv1, v1);
+			format (std::cout, "-v1=%s\n", nv1);
 		}
 	}
 	format (std::cout, "ristretto encode and decode checked on %d random points\n",  count);
@@ -747,25 +779,10 @@ void test_sqrt_m1 (int count)
 	}
 }
 
-void test_mx_ris()
-{
-	uint8_t sc[32];
-	randombytes_buf (sc, 32);
-	mask_scalar (sc);
-	Edwards p1, p2;
-	scalarbase (p1, sc);
-	negate (p2, p1);
-	uint8_t rs1[32], rs2[32];
-	edwards_to_ristretto (rs1, p1);
-	edwards_to_ristretto (rs2, p2);
-	format (std::cout, "p1=%s\np2=%s\n", p1, p2);
-	show_block (std::cout, "rs1", rs1, 32);
-	show_block (std::cout, "rs2", rs2, 32);
-}
 
 int main()
 {
-	test_ristretto(100);
+	test_ristretto(200);
 	test_ristretto_sign(100);
 	test_ristretto_ladder();
 //  small_ris();
@@ -777,6 +794,5 @@ int main()
 	test_conv();
 	test_scalarmult();
 	test_sqrt_m1(5);
-	test_mx_ris();
 }
 

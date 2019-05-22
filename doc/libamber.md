@@ -1,30 +1,32 @@
 Libamber
 ========
 
-This file deals with the use of the *libamber* library. You may package it as 
+This file deals with the use of the *libamber* library. You may package it as
 a separate library or you may include the files within your source tree.
 
-If you need padlock based encryption then you need to be familiar with the 
+If you need public key based encryption then you need to be familiar with the 
 concept of public and private keys. Refer to the file **amber.md** for 
 explanations of these concepts. The file *amber.md* refers to public keys as 
 *padlocks* and private keys as *keys*. This is intended to make it easier for 
 non experts to understand the concepts using an analogy with physical 
-security. 
+security.
 
-There are several entry points to this library. If you just want a very 
-simple API to encrypt and decrypt files then use the high level API defined 
-in *combined.hpp*. There is very little that can go wrong using this level. 
+There are several entry points to this library. If you just want a very
+simple API to encrypt and decrypt files then use the high level API defined
+in *combined.hpp*. There is very little that can go wrong using this level.
 
-At the medium level we have the *amber::ofstream* and *amber::ifstream* 
-encrypting and decrypting classes. They look and operate like the std 
-counterparts but perform encryption and decryption under the hood. The higher 
-level API is just a wrapper around these classes. The archiving functionality 
-built into the library just uses these classes and knows nothing about 
-encryption. 
+At the medium level we have the *amber::ofstream* and *amber::ifstream*
+encrypting and decrypting classes. They look and operate like the std
+counterparts but perform encryption and decryption under the hood. The higher
+level API is just a wrapper around these classes. The archiving functionality
+built into the library just uses these classes and knows nothing about
+encryption.
 
-The lowest level provides functions that perform shared secret computation,
-packet encryption, authentication, password hashing, etc. They allow you to
-create your own protocol or file format taylored to your needs.
+The lowest level provides functions that perform shared secret computation, 
+packet encryption, authentication, password hashing, etc. They allow you to 
+create your own protocol or file format taylored to your needs. You must 
+however know how to combine them to maintain the required level of security 
+and not introduce errors.
 
 If instead of encrypting files you want to exchange messages in a duplex
 connection then use the Noise protocol as implemented in
@@ -99,9 +101,9 @@ group25519.hpp
 The file *group25519.hpp* declares the functions that deal with public key
 cryptography.
 
-It provides four types that each contain 32 bytes. They are different types 
-to allow the compiler to catch errors if you pass the wrong type. Each of 
-these types has a single member: `uint8_t b[32];` You can access the 
+It provides four types that each contain 32 byte keys. They are different 
+types to allow the compiler to catch errors if you pass the wrong type. Each 
+of these types has a single member: `uint8_t b[32];` You can access the 
 individual bytes by using something like `key.b[i]`. The private key, which 
 is the secret scalar, is represented by the type Cu25519Sec. The type 
 Cu25519Mon contains a Montgomery u coordinate. This is the same as what is 
@@ -109,35 +111,35 @@ used in X25519 as public key. The type Cu25519Ell contains an Elligator2
 representative. It can be converted to a Cu25519Mon value. Finally the type 
 Cu25519Ris contains a Ristretto encoding of a point.
 
-To generate a long term key you use `cu25519_generate (Cu25519Sec *xs, 
-Cu25519Ris *xp)`. The first argument is the input secret key and the second 
-argument is the output public key. You must fill `xs.b` with 32 random bytes 
-before calling this function. The function will then adjust the value of `xs` 
+To generate a long term key you use `cu25519_generate (Cu25519Sec *xs,
+Cu25519Ris *xp)`. The first argument is the input secret key and the second
+argument is the output public key. You must fill `xs.b` with 32 random bytes
+before calling this function. The function will then adjust the value of `xs`
 and will compute the corresponding public key `xp`.
 
-To generate an ephemeral key that will be used with Elligator2 use the 
-function `cu225191_elligator2_gen (Cu25519Sec *xs, Cu25519Mon *xp, Cu25519Ell 
-*xr)`. The first argument is the input secret key. You should fill it with 32 
-random bytes before calling this function. The function will adjust this key. 
-The second argument is the public Montgomery key corresponding to this secret 
-key. The third argument is the Elligator2 representative corresponding to 
+To generate an ephemeral key that will be used with Elligator2 use the
+function `cu225191_elligator2_gen (Cu25519Sec *xs, Cu25519Mon *xp, Cu25519Ell
+*xr)`. The first argument is the input secret key. You should fill it with 32
+random bytes before calling this function. The function will adjust this key.
+The second argument is the public Montgomery key corresponding to this secret
+key. The third argument is the Elligator2 representative corresponding to
 this secret key. The function adjusts `xs` and computes both `xp` and `xr`.
 
-To recover the public Montgomery key from an Elligator2 representative you 
+To recover the public Montgomery key from an Elligator2 representative you
 use the function `cu25519_elligator2_rev (Cu25519Mon *xs, const Cu25519Ell
 &rep)`. You pass in the representative and you get the corresponding public
 key.
 
 The Elligator2 representative cannot be distinguished from a random number.
 
-To compute the secret shared by two keys use `cu25519_shared_secret (uint8_t 
-sh[32], const Cu25519Ris &xp, const Cu25519Sec &xs)` or 
-`cu25519_shared_secret (uint8_t sh[32], const Cu25519Mon &xp, const 
-Cu25519Sec &xs)` You pass the public key of the other party, `xp`, and your 
-own secret key, `xs`. The function computes the shared secret by both keys 
-and stores it in `sh`. Keep in mind that you need to hash this shared secret 
-before using it. The functions take the public key in either Montgomery or 
-Ristretto format. If the Montgomery and Ristretto values correspond to the 
+To compute the secret shared by two keys use `cu25519_shared_secret (uint8_t
+sh[32], const Cu25519Ris &xp, const Cu25519Sec &xs)` or
+`cu25519_shared_secret (uint8_t sh[32], const Cu25519Mon &xp, const
+Cu25519Sec &xs)` You pass the public key of the other party, `xp`, and your
+own secret key, `xs`. The function computes the shared secret by both keys
+and stores it in `sh`. Keep in mind that you need to hash this shared secret
+before using it. The functions take the public key in either Montgomery or
+Ristretto format. If the Montgomery and Ristretto values correspond to the
 same secret key then the computed shared secret will be the same.
 
 To sign a message use `cu25519_sign (const uint8_t *m, size_t mlen, const 
