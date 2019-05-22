@@ -32,7 +32,7 @@
 #include <stdint.h>
 #include <iosfwd>
 #include "soname.hpp"
-#include "misc.hpp"              
+#include "misc.hpp"
 
 // Operations in the field modulo 2²⁵⁵ - 19.
 
@@ -159,10 +159,8 @@ inline void cswap (Fe32 &a, Fe32 &b, uint32_t flag);
 EXPORTFN void load (Fe64 &fe, const uint8_t b[32]);
 EXPORTFN void reduce_store (uint8_t b[32], Fe64 &fe);
 EXPORTFN void reduce_full (Fe64 &fe);
-EXPORTFN
-std::ostream & operator<< (std::ostream &os, const amber::Fe64 &rhs);
-EXPORTFN
-void show_raw (const char *label, const Fe64 &fe);
+EXPORTFN std::ostream & operator<< (std::ostream &os, const amber::Fe64 &rhs);
+EXPORTFN void show_raw (const char *label, const Fe64 &fe);
 
 inline void add_no_reduce (Fe64 &res, const Fe64 &a, const Fe64 &b);
 inline void add (Fe64 &res, const Fe64 &a, const Fe64 &b);
@@ -187,8 +185,7 @@ struct Edwards {
 
 // Compute 1/z by raising z to p-2 = 2²⁵⁵ - 21. It works for all inputs
 // except for zero. When z == 0 then it sets res = 0.
-EXPORTFN
-void invert (Fe &res, const Fe &z);
+EXPORTFN void invert (Fe &res, const Fe &z);
 
 // Raise z to the 2²⁵² - 3 power. Similar to the above computation. Used for
 // combined sqrt and division. From the Ed25519 paper: we need to compute the
@@ -198,36 +195,30 @@ void invert (Fe &res, const Fe &z);
    β = (u/v)^[(p+3)/8] = u^[(p+3)/8] * v^[p-1-(p+3)/8], because x^(p-1) == 1
    β = u^[(p+3)/8] * v^[(7p-11)/8] = uv³(uv⁷)^[(p-5)/8] = uv³(uv⁷)^(2²⁵² - 3)
 */
-EXPORTFN
-void raise_252_3 (Fe &res, const Fe &z);
+EXPORTFN void raise_252_3 (Fe &res, const Fe &z);
 
 // res = z ^ (2²⁵³ - 5)
-EXPORTFN
-void raise_253_5 (Fe &res, const Fe &z);
+EXPORTFN void raise_253_5 (Fe &res, const Fe &z);
 
 // Raise to 2²⁵⁴ - 10.
-EXPORTFN
-void raise_254_10 (Fe &res, const Fe &z);
+EXPORTFN void raise_254_10 (Fe &res, const Fe &z);
 
 
 // res = sqrt(1/x). Returns 0 if the root exists. Returns 1 otherwise.
 // Constant time.
-EXPORTFN
-int invsqrt (Fe &res, const Fe &x);
+EXPORTFN int invsqrt (Fe &res, const Fe &x);
 
 // Return 0 if there is a square root. 1 if there isn't one. Constant time.
-EXPORTFN
-int sqrt (Fe &res, const Fe &x);
+EXPORTFN int sqrt (Fe &res, const Fe &x);
 
 // If u/v is a square *res = sqrt(u/v) and return 0. If u/v is not a square
 // *res = sqrt(iu/v) and return 1. Constant time.
-int sqrt_ratio_m1 (Fe &res, const Fe &u, const Fe &v);
+EXPORTFN int sqrt_ratio_m1 (Fe &res, const Fe &u, const Fe &v);
 
 
 
 // Return 1 or 0. Constant time.
-EXPORTFN
-uint8_t not_zero (const uint8_t *b, size_t n);
+EXPORTFN uint8_t not_zero (const uint8_t *b, size_t n);
 
 
 inline int ct_is_zero (const Fe &u)
@@ -248,11 +239,9 @@ inline int ct_is_zero (const Fe &u)
 // implementation works with any scalar using all 256 bits.
 
 // Normal X only scalar multiplication.
-EXPORTFN
-void montgomery_ladder (uint8_t res[32], const uint8_t pointx[32], const uint8_t scalar[32]);
-EXPORTFN
-void montgomery_ladder (Fe &res, const Fe &xp, const uint8_t scalar[32]);
-void montgomery_ladder (Fe &u, Fe &z, const Fe &xp, const uint8_t scalar[32], int startbit=255);
+EXPORTFN void montgomery_ladder (uint8_t res[32], const uint8_t pointx[32], const uint8_t scalar[32]);
+EXPORTFN void montgomery_ladder (Fe &res, const Fe &xp, const uint8_t scalar[32]);
+EXPORTFN void montgomery_ladder (Fe &u, Fe &z, const Fe &xp, const uint8_t scalar[32], int startbit=255);
 
 
 // Montgomery ladder with recovery of Y coordinate. bu and bv are the affine
@@ -260,49 +249,38 @@ void montgomery_ladder (Fe &u, Fe &z, const Fe &xp, const uint8_t scalar[32], in
 // time than the X only multiplication.
 
 // Result in projective Montgomery coordinates.
-EXPORTFN
-void montgomery_ladder_uv (Fe &resu, Fe &resv, Fe &resz, const Fe &bu,
-                           const Fe &bv, const uint8_t scalar[32]);
+EXPORTFN void montgomery_ladder_uv (Fe &resu, Fe &resv, Fe &resz, const Fe &bu,
+                                    const Fe &bv, const uint8_t scalar[32]);
 // Result in affine Montgomery coordinates.
-EXPORTFN
-void montgomery_ladder_uv (Fe &resu, Fe &resv, const Fe &bu, const Fe &bv,
-                           const uint8_t scalar[32]);
+EXPORTFN void montgomery_ladder_uv (Fe &resu, Fe &resv, const Fe &bu, const Fe &bv,
+                                    const uint8_t scalar[32]);
 // Result in Edwards coordinates.
-EXPORTFN
-void montgomery_ladder (Edwards &res, const Fe &bu, const Fe &bv,
-                        const uint8_t scalar[32]);
+EXPORTFN void montgomery_ladder (Edwards &res, const Fe &bu, const Fe &bv,
+                                 const uint8_t scalar[32]);
 
 // Edwards to Edwards. Internal conversion to Montgomery affine coordinates
 // and then the ladder.
-EXPORTFN
-void montgomery_ladder (Edwards &res, const Edwards &p, const uint8_t scalar[32]);
+EXPORTFN void montgomery_ladder (Edwards &res, const Edwards &p, const uint8_t scalar[32]);
 
 
 // Scalar multiplication of base point using the Montgomery ladder. Return
 // the result in projective Montgomery, Edwards coordinates or affine
 // Montgomery. The first two take equal time and less than the third one.
-EXPORTFN
-void montgomery_base (Fe &u, Fe &v, Fe &z, const uint8_t scalar[32]);
-EXPORTFN
-void montgomery_base (Edwards &e, const uint8_t scalar[32]);
-EXPORTFN
-void montgomery_base (Fe &u, Fe &v, const uint8_t scalar[32]);
+EXPORTFN void montgomery_base (Fe &u, Fe &v, Fe &z, const uint8_t scalar[32]);
+EXPORTFN void montgomery_base (Edwards &e, const uint8_t scalar[32]);
+EXPORTFN void montgomery_base (Fe &u, Fe &v, const uint8_t scalar[32]);
 
 // Directly store as the montgomery u coordinate with the sign bit of the
 // Edwards x coordinate.
-EXPORTFN
-void montgomery_base (uint8_t mx[32], const uint8_t scalar[32]);
+EXPORTFN void montgomery_base (uint8_t mx[32], const uint8_t scalar[32]);
 
 // Full conversion between Montgomery and Edwards.
-EXPORTFN
-void edwards_to_mont (Fe &u, Fe &v, const Edwards &e);
-EXPORTFN
-void mont_to_edwards (Edwards &e, const Fe &u, const Fe &v, const Fe &z);
+EXPORTFN void edwards_to_mont (Fe &u, Fe &v, const Edwards &e);
+EXPORTFN void mont_to_edwards (Edwards &e, const Fe &u, const Fe &v, const Fe &z);
 
 
 // Return 1 if v > lim. Return 0 otherwise. Constant time.
-EXPORTFN
-uint32_t gt_than (const uint8_t v[32], const uint8_t lim[32]);
+EXPORTFN uint32_t gt_than (const uint8_t v[32], const uint8_t lim[32]);
 
 // Elligator as Fe. Note that r is < (p-1)/2. When putting it into bytes the
 // upper two bits will be zero and they should be set to random values to
@@ -310,20 +288,16 @@ uint32_t gt_than (const uint8_t v[32], const uint8_t lim[32]);
 // will compute r if it exists (return value == 0)
 
 // From Edwards.
-EXPORTFN
-int elligator2_p2r (Fe &r, Fe &u, const Edwards &p);
+EXPORTFN int elligator2_p2r (Fe &r, Fe &u, const Edwards &p);
 // Direct entry from affine Montgomery coordinates.
-EXPORTFN
-int elligator2_p2r (Fe &r, const Fe &u, const Fe &v);
+EXPORTFN int elligator2_p2r (Fe &r, const Fe &u, const Fe &v);
 
 // Inverse function.
-EXPORTFN
-void elligator2_r2u (Fe &u, const Fe &r);
+EXPORTFN void elligator2_r2u (Fe &u, const Fe &r);
 
 // Increment the scalar by delta*8. It assumes that the scalar has already
 // been masked.
-EXPORTFN
-void increment (uint8_t scalar[32], int delta=1);
+EXPORTFN void increment (uint8_t scalar[32], int delta=1);
 
 
 
@@ -342,7 +316,7 @@ inline void add_no_reduce (Fe32 &res, const Fe32 &a, const Fe32 &b)
 	res.v[5] = a.v[5] + b.v[5];
 	res.v[6] = a.v[6] + b.v[6];
 	res.v[7] = a.v[7] + b.v[7];
-	res.v[8] = a.v[8] + b.v[8];                   
+	res.v[8] = a.v[8] + b.v[8];
 	res.v[9] = a.v[9] + b.v[9];
 }
 
@@ -951,5 +925,5 @@ inline void square (Fe64 &res, const Fe64 &f)
 
 
 #endif
-
+		 
 

@@ -74,30 +74,25 @@ inline void mask_scalar (uint8_t scb[32])
 // and take similar time with differences around 10%.
 
 // Store the point as Montgomery x with the sign bit in bit 255.
-EXPORTFN
-void edwards_to_mxs (uint8_t res[32], const Edwards &p);
+EXPORTFN void edwards_to_mxs (uint8_t res[32], const Edwards &p);
 
 // Store the point as Edwards y with the sign bit in bit 255.
-EXPORTFN
-void edwards_to_eys (uint8_t res[32], const Edwards &p);
+EXPORTFN void edwards_to_eys (uint8_t res[32], const Edwards &p);
 
 // Store in both formats. More efficient than separate calls.
-EXPORTFN
-void edwards_to_eys_mxs (uint8_t ey[32], uint8_t mx[32], const Edwards &p);
+EXPORTFN void edwards_to_eys_mxs (uint8_t ey[32], uint8_t mx[32], const Edwards &p);
 
 
 // Load from compressed Edwards Y plus sign bit to full Edwards extended
 // coordinates. Return 0 if ok, -1 on errors. If sign_change is true then it
 // will select the negative value of the point.
-EXPORTFN
-int eys_to_edwards (Edwards &res, const uint8_t ey[32], bool sign_change);
+EXPORTFN int eys_to_edwards (Edwards &res, const uint8_t ey[32], bool sign_change);
 
 // Load from compressed Montgomery X plus sign bit to full Edwards
 // extended coordinates. Return 0 on success. If will fail if the point is
 // not on the curve or mx == 0 or mx == -1. If sign_change is true then it
 // will select the negative value of the point.
-EXPORTFN
-int mxs_to_edwards (Edwards &res, const uint8_t mx[32], bool sign_change);
+EXPORTFN int mxs_to_edwards (Edwards &res, const uint8_t mx[32], bool sign_change);
 
 // In both cases above the sign bit is the least significant bit of
 // the Edwards X coordinate of the point. It is stored in the most
@@ -112,31 +107,28 @@ int mxs_to_edwards (Edwards &res, const uint8_t mx[32], bool sign_change);
 
 
 // Convert compressed Edwards y to compressed Montgomery x, with sign bits.
-EXPORTFN
-void eys_to_mxs (uint8_t mx[32], const uint8_t ey[32]);
+EXPORTFN void eys_to_mxs (uint8_t mx[32], const uint8_t ey[32]);
 
 // Convert compressed Montgomery x to compressed Edwards y, with sign bits.
-EXPORTFN
-void mxs_to_eys (uint8_t ey[32], const uint8_t mx[32]);
+EXPORTFN void mxs_to_eys (uint8_t ey[32], const uint8_t mx[32]);
 
 
 // Ristretto format. The following are constant time.
 
 // Encode the point p in the ristretto representation. Constant time.
-void edwards_to_ristretto (uint8_t s[32], const Edwards p);
+EXPORTFN void edwards_to_ristretto (uint8_t s[32], const Edwards p);
 // Decode the ristretto representation. Return 0 if success. Constant time.
-int ristretto_to_edwards (Edwards &res, const uint8_t sc[32]);
+EXPORTFN int ristretto_to_edwards (Edwards &res, const uint8_t sc[32]);
 
 // Decode from ristretto to Edwards and Montgomery representations using a
 // single exponentiation. Return 0 on success. Constant time. This can be
 // used as direct input to the Montgomery ladder if the full point result
 // (including x or v) are required.
-int ristretto_to_mont (Edwards &ed, Fe &u, Fe &v, const uint8_t sc[32]);
+EXPORTFN int ristretto_to_mont (Edwards &ed, Fe &u, Fe &v, const uint8_t sc[32]);
 
 
 // Output the result of edwards_to_eys.
-EXPORTFN
-std::ostream & operator<< (std::ostream &os, const Edwards &rhs);
+EXPORTFN std::ostream & operator<< (std::ostream &os, const Edwards &rhs);
 
 
 
@@ -148,31 +140,26 @@ std::ostream & operator<< (std::ostream &os, const Edwards &rhs);
 
 // Compute sB using precomputed multiples of B (the base point). Constant
 // time. Works with scalars of 256 bits. Very fast.
-EXPORTFN
-void scalarbase (Edwards &res, const uint8_t scalar[32]);
+EXPORTFN void scalarbase (Edwards &res, const uint8_t scalar[32]);
 
 // General scalar multiplication with variable base. Constant time. Works
 // with scalars of 256 bits. Simple, but slow.
-EXPORTFN
-void scalarmult (Edwards &res, const Edwards &p, const uint8_t s[32]);
+EXPORTFN void scalarmult (Edwards &res, const Edwards &p, const uint8_t s[32]);
 
 // General scalar multiplication with variable base using a fixed window.
 // Constant time. Faster. Works with scalars of 256 bits.
-EXPORTFN
-void scalarmult_fw (Edwards &res, const Edwards &p, const uint8_t s[32]);
+EXPORTFN void scalarmult_fw (Edwards &res, const Edwards &p, const uint8_t s[32]);
 
 // The base point in Edwards coordinates.
-extern const Edwards edwards_base_point;
+EXPORTFN extern const Edwards edwards_base_point;
 
 // Variable time res = s*P. Works with scalars of 256 bits.
-EXPORTFN
-void scalarmult_wnaf (Edwards &res, const Edwards &p, const uint8_t s[32]);
+EXPORTFN void scalarmult_wnaf (Edwards &res, const Edwards &p, const uint8_t s[32]);
 
 // Variable time res = s1*B + s2*P, where B is the base point. Works with
 // scalars of 256 bits.
-EXPORTFN
-void scalarmult_wnaf (Edwards &res, const uint8_t s1[32],
-                      const Edwards &p, const uint8_t s2[32]);
+EXPORTFN void scalarmult_wnaf (Edwards &res, const uint8_t s1[32],
+                               const Edwards &p, const uint8_t s2[32]);
 
 // Point arithmetic.
 EXPORTFN void add (Edwards &res, const Edwards &a, const Edwards &b);
@@ -195,7 +182,7 @@ EXPORTFN void write_summands (const char *name);
 
 // Reduce mod L, where L=order of curve.
 EXPORTFN void reduce (uint8_t *dst, const uint8_t src[64]);
-void reduce32 (uint8_t *dst, const uint8_t src[32]);
+EXPORTFN void reduce32 (uint8_t *dst, const uint8_t src[32]);
 typedef int32_t Limbtype;
 EXPORTFN void modL (uint8_t r[32], Limbtype x[64]);
 
@@ -205,33 +192,33 @@ EXPORTFN void modL (uint8_t r[32], Limbtype x[64]);
 // RISTRETTO OPS IN EDWARDS
 
 // Do the Edwards points p1 and p2 represent the same ristretto point?
-bool ristretto_equal (const Edwards &p1, const Edwards &p2);
+EXPORTFN bool ristretto_equal (const Edwards &p1, const Edwards &p2);
 
 // As defined in RFC. Generate a point from random bits.
-void ristretto_from_uniform (Edwards &p, const uint8_t b[64]);
+EXPORTFN void ristretto_from_uniform (Edwards &p, const uint8_t b[64]);
 
 
 
 
 // SIGNATURE SCHEMES
 
-										
+
 // Signatures using qDSA and X25519 keys.
 
 // Generate a qDSA signature. The A is the public X25519 key.
-void curvesig (const char *prefix, const uint8_t *m, size_t mlen,
-               const uint8_t A[32], const uint8_t scalar[32],
-               uint8_t sig[64]);
+EXPORTFN void curvesig (const char *prefix, const uint8_t *m, size_t mlen,
+                        const uint8_t A[32], const uint8_t scalar[32],
+                        uint8_t sig[64]);
 
 // Verify signature using qDSA. What is checked is R == ±SB ± hA. The public
 // key is the X25519 key.
-int curverify (const char *prefix, const uint8_t *m, size_t mlen,
-               const uint8_t sig[64], const uint8_t mx[32]);
+EXPORTFN int curverify (const char *prefix, const uint8_t *m, size_t mlen,
+                        const uint8_t sig[64], const uint8_t mx[32]);
 
 // Verify signature using qDSA. What is checked is R == ±SB ± hA. This uses
 // Montgomery arithmetic only and the public key is the X25519 key.
-int curverify_mont (const char *prefix, const uint8_t *m, size_t mlen,
-                    const uint8_t sig[64], const uint8_t mx[32]);
+EXPORTFN int curverify_mont (const char *prefix, const uint8_t *m, size_t mlen,
+                             const uint8_t sig[64], const uint8_t mx[32]);
 
 
 
@@ -276,18 +263,17 @@ EXPORTFN void ed25519_seed_to_ey (uint8_t ey[32], const uint8_t seed[32]);
 // Sign the given message, m[0..mlen[ with the secret scalar. Mx is the
 // public Montgomery X. This function uses Blake2b as hash. The prefix
 // (including the terminating null) is prepended to the message.
-EXPORTFN
-void sign_bmx (const char *prefix, const uint8_t *m, size_t mlen,
-               const uint8_t mx[32], const uint8_t scalar[32], uint8_t sig[64]);
+EXPORTFN void sign_bmx (const char *prefix, const uint8_t *m, size_t mlen, 
+						const uint8_t mx[32], const uint8_t scalar[32], 
+						uint8_t sig[64]);
 
 // Check the signature sig[0..63] for the message m[0..mlen[ using mx as A
 // for the hashing in H(RAM) and decompressing mx to the public point of
 // the signer. Return 0 if the signature is valid. Uses Blake2b as hash. The
 // prefix is prepended to the message. This also works with keys without a
 // sign bit.
-EXPORTFN
-int verify_bmx (const char *prefix, const uint8_t *m, size_t mlen,
-                const uint8_t sig[64], const uint8_t mx[32]);
+EXPORTFN int verify_bmx (const char *prefix, const uint8_t *m, size_t mlen,
+                         const uint8_t sig[64], const uint8_t mx[32]);
 
 
 
@@ -341,7 +327,7 @@ EXPORTFN void cu25519_generate (Cu25519Sec *scalar, Cu25519Mon *mon);
 // Fill the scalar with random bytes before calling. It will mask the scalar
 // according to the X25519 conventions and store in ris the Ristretto
 // point.
-void cu25519_generate (Cu25519Sec *scalar, Cu25519Ris *ris);
+EXPORTFN void cu25519_generate (Cu25519Sec *scalar, Cu25519Ris *ris);
 
 // Shorthand for cu25519_generate (&pair->xs, &pair->xp);
 EXPORTFN void cu25519_generate (Cu25519Pair *pair);
@@ -349,7 +335,7 @@ EXPORTFN void cu25519_generate (Cu25519Pair *pair);
 
 // Fill scalar with random bytes before calling. Scalar can use all 256 bits
 // and no masking will be performed.
-void cu25519_generate_no_mask (const Cu25519Sec &scalar, Cu25519Ris *ris);
+EXPORTFN void cu25519_generate_no_mask (const Cu25519Sec &scalar, Cu25519Ris *ris);
 
 
 // DH. Compute the shared secret. Needs hashing before use. Use mix_key() for
@@ -367,7 +353,8 @@ inline void cu25519_shared_secret (uint8_t sh[32], const Cu25519Mon &mon,
 // multiple  of 8. It reuses the montgomery ladder of X25519 and is as fast.
 // The scalar has 256 bits. Return 0 if successful, -1 if the point is not
 // on the curve.
-int cu25519_shared_secret (uint8_t res[32], const Cu25519Ris &A, const Cu25519Sec &scalar);
+EXPORTFN int cu25519_shared_secret (uint8_t res[32], const Cu25519Ris &A, 
+									const Cu25519Sec &scalar);
 
 
 
@@ -377,7 +364,8 @@ int cu25519_shared_secret (uint8_t res[32], const Cu25519Ris &A, const Cu25519Se
 // successful, -1 if the point is not on the curve. This test is not as
 // exhaustive as ristretto_to_edwards() because it does not care if the
 // supplied representative of the coset is the correct one.
-int cu25519_shared_secret_cof (uint8_t res[32], const Cu25519Ris &A, const Cu25519Sec &scalar);
+EXPORTFN int cu25519_shared_secret_cof (uint8_t res[32], const Cu25519Ris &A, 
+										const Cu25519Sec &scalar);
 
 
 
@@ -391,16 +379,18 @@ int cu25519_shared_secret_cof (uint8_t res[32], const Cu25519Ris &A, const Cu255
 // prefix  including the terminating null (this ensures that the prefix is
 // unique).
 
-void cu25519_sign (const char *prefix, const uint8_t *m, size_t mlen,
-                   const Cu25519Ris &A, const Cu25519Sec &sec, uint8_t sig[64]);
+EXPORTFN void cu25519_sign (const char *prefix, const uint8_t *m, size_t mlen, 
+							const Cu25519Ris &A, const Cu25519Sec &sec, 
+							uint8_t sig[64]);
 // Return 0 if ok.
-int cu25519_verify (const char *prefix, const uint8_t *m, size_t mlen,
-                    const uint8_t sig[64], const Cu25519Ris &A);
+EXPORTFN int cu25519_verify (const char *prefix, const uint8_t *m, 
+							 size_t mlen, const uint8_t sig[64], 
+							 const Cu25519Ris &A);
 
 // Verify a ristretto signature using qDSA and Montgomery, no Edwards
 // arithmetic. Return 0 on success.
-int ristretto_qdsa_verify (const char *prefix, const uint8_t *m, size_t mlen,
-                           const uint8_t sig[64], const Cu25519Ris &A);
+EXPORTFN int ristretto_qdsa_verify (const char *prefix, const uint8_t *m, size_t mlen,
+                        const uint8_t sig[64], const Cu25519Ris &A);
 
 
 // qDSA signatures using only X25519 keys. You can use existing keys for
