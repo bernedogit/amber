@@ -120,7 +120,7 @@ bin/group25519_test.o bin/group25519_test-pic.o : test/group25519_test.cpp \
     src/misc.hpp  src/soname.hpp  src/symmetric.hpp  src/blake2.hpp  \
     src/group25519.hpp  src/field25519.hpp  src/hasopt.hpp  
 
-bin/grouped.o bin/grouped-pic.o : test/grouped.cpp test/grouped.hpp  
+bin/grouped.o bin/grouped-pic.o : test/grouped.cpp 
 
 bin/hasopt.o bin/hasopt-pic.o : src/hasopt.cpp src/hasopt.hpp  src/soname.hpp  
 
@@ -132,8 +132,8 @@ bin/hkdf_test.o bin/hkdf_test-pic.o : test/hkdf_test.cpp src/hkdf.hpp  \
 bin/hmac2b.o bin/hmac2b-pic.o : src/hmac2b.cpp 
 
 bin/inplace.o bin/inplace-pic.o : src/inplace.cpp src/soname.hpp  src/blake2.hpp  \
-    src/group25519.hpp  src/field25519.hpp  src/symmetric.hpp  src/blockbuf.hpp  \
-    src/misc.hpp  
+    src/group25519.hpp  src/symmetric.hpp  src/hasopt.hpp  src/field25519.hpp  \
+    src/blockbuf.hpp  src/misc.hpp  
 
 bin/keys.o bin/keys-pic.o : src/keys.cpp src/soname.hpp  src/field25519.hpp  \
     src/hasopt.hpp  src/group25519.hpp  src/blake2.hpp  src/keys.hpp  \

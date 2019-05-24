@@ -364,8 +364,8 @@ EXPORTFN int cu25519_shared_secret (uint8_t res[32], const Cu25519Ris &A,
 // successful, -1 if the point is not on the curve. This test is not as
 // exhaustive as ristretto_to_edwards() because it does not care if the
 // supplied representative of the coset is the correct one.
-EXPORTFN int cu25519_shared_secret_cof (uint8_t res[32], const Cu25519Ris &A, 
-										const Cu25519Sec &scalar);
+EXPORTFN int cu25519_shared_secret_cof (uint8_t res[32], const Cu25519Ris &A,
+                                        const Cu25519Sec &scalar);
 
 
 
@@ -379,13 +379,13 @@ EXPORTFN int cu25519_shared_secret_cof (uint8_t res[32], const Cu25519Ris &A,
 // prefix  including the terminating null (this ensures that the prefix is
 // unique).
 
-EXPORTFN void cu25519_sign (const char *prefix, const uint8_t *m, size_t mlen, 
-							const Cu25519Ris &A, const Cu25519Sec &sec, 
-							uint8_t sig[64]);
+EXPORTFN void cu25519_sign (const char *prefix, const uint8_t *m, size_t mlen,
+                            const Cu25519Ris &A, const Cu25519Sec &sec,
+                            uint8_t sig[64]);
 // Return 0 if ok.
-EXPORTFN int cu25519_verify (const char *prefix, const uint8_t *m, 
-							 size_t mlen, const uint8_t sig[64], 
-							 const Cu25519Ris &A);
+EXPORTFN int cu25519_verify (const char *prefix, const uint8_t *m,
+                             size_t mlen, const uint8_t sig[64],
+                             const Cu25519Ris &A);
 
 // Verify a ristretto signature using qDSA and Montgomery, no Edwards
 // arithmetic. Return 0 on success.
@@ -394,7 +394,8 @@ EXPORTFN int ristretto_qdsa_verify (const char *prefix, const uint8_t *m, size_t
 
 
 // qDSA signatures using only X25519 keys. You can use existing keys for
-// signatures without any further modifications.
+// signatures without any further modifications. These signatures are not
+// compatible with the Ristretto signatures.
 inline void cu25519_sign (const char *prefix, const uint8_t *m, size_t mlen,
                           const Cu25519Mon &A, const Cu25519Sec &sec,
                           uint8_t sig[64]) {

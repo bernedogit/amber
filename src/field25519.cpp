@@ -562,7 +562,7 @@ void montgomery_ladder_uv (Fe &resu, Fe &resv, const Fe &xpu, const Fe &xpv, con
 }
 
 #if AMBER_LIMB_BITS == 32
-// C = sqrt(-1)*sqrt(A+2)
+// C = sqrt(-A-2)
 static const Fe C = { 0x0ba81e7, 0x07ed540, 0x0afa672, 0x175a417, 0x0e978b0,
                       0x003b081, 0x27b91fe, 0x12885b0, 0x0b9f5ff, 0x1c36448 };
 #elif AMBER_LIMB_BITS >= 64

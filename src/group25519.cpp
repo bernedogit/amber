@@ -635,6 +635,7 @@ void pdouble (Edwards &res, const Edwards &x)
 
 void negate (Edwards &res, const Edwards &p)
 {
+	// Works even if res and p point to the same memory.
 	negate (res.x, p.x);
 	res.y = p.y;
 	res.z = p.z;
@@ -2274,6 +2275,7 @@ void ristretto_from_uniform (Edwards &p, const uint8_t b[64])
 	point_add (p, p1, p2);
 }
 
+// Ed25519 in Ristretto format with Blake2b.
 void cu25519_sign (const char *prefix, const uint8_t *m, size_t mlen,
                    const Cu25519Ris &A, const Cu25519Sec &scalar, uint8_t sig[64])
 {

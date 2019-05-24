@@ -26,6 +26,7 @@
  */
 
 #include "blockbuf.hpp"
+#include "hasopt.hpp"
 #include <unistd.h>
 #include <math.h>
 
@@ -117,7 +118,11 @@ void inplace_decrypt (const char *name, const char *pass, int max_shifts)
 	}
 	bbe.close();
 	fs.close();
-	truncate (name, posw);
+	int errc = truncate (name, posw);
+	if (errc != 0) {
+		throw_rte (_("Cannot truncate the file %s to %d bytes. Aborting.\n"),
+		        name, posw);
+	}
 	size_t nl = strlen (name);
 	if (nl > 4 && strcmp(name + nl - 4, ".cha") == 0) {
 		std::string new_name (name, nl - 4);
