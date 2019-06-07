@@ -411,7 +411,7 @@ std::ostream & operator<< (std::ostream &os, const Edwards &rhs)
 			os << ' ';
 			count = 0;
 		}
-	}
+    }
 	os << std::dec << std::setfill (' ');
 	return os;
 }
@@ -2075,7 +2075,9 @@ int ristretto_to_edwards (Edwards &res, const uint8_t sc[32])
 	return not_square | ct_is_negative (res.t) | is_zero (yr, 32) | (sc[0] & 1);
 }
 
-/* Conversion from Ristretto to Edwards and Montgomery with a single exponentiation.
+/******************
+  Conversion from Ristretto to Edwards and Montgomery with a single
+  exponentiation.
 		 1 - s²
 	y = -------
 		 1 + s²
@@ -2387,8 +2389,15 @@ void cu25519_generate (Cu25519Sec *scalar, Cu25519Ris *ris)
 // coset: the set of points differing only by a small order point.
 // Therefore we use u = s² as input to the ladder and then clear the
 // small order component by multiplying by the cofactor. We require that the
-// scalar is a multiple of 8 for this function.
-static int ristretto_ladder_imp (uint8_t res[32], const Cu25519Ris &A, const uint8_t scalar[32], int startbit=254)
+// scalar is a multiple of 8 for this function. We reject resulting points
+// which are in the twist and we reject small order points. This produces
+// results that are compatible with the Montgomery representation. For
+// instance you may use a long term key in Ristretto format and an ephemeral
+// key in Elligator or Montgomery format. Alice uses a*B with B in Ristretto
+// format and Bob uses b*A with A in Montgomery format and both produce the
+// same result. Therefore we can mix Ristretto and Montgomery for DH.
+
+static int ristretto_ladder_imp_checked (uint8_t res[32], const Cu25519Ris &A, const uint8_t scalar[32], int startbit=255)
 {
 	// s must be even for valid ristretto encodings.
 	if (A.b[0] & 1) return -1;
@@ -2397,26 +2406,54 @@ static int ristretto_ladder_imp (uint8_t res[32], const Cu25519Ris &A, const uin
 	square (s2, s2);
 	Fe fu, fz;
 	montgomery_ladder (fu, fz, s2, scalar, startbit);
-	uint8_t scu[32], scz[32];
-	reduce_store (scu, fu);
-	reduce_store (scz, fz);
-	if (is_zero (scu, 32) || is_zero (scz, 32)) {
-		return -1;
-	}
+
+	// We multiply by the cofactor. Therefore the result is the result of
+	// doubling a point. In Montgomery coordinates points which are the
+	// result of doubling have the x coordinate square. The invsqrt will
+	// also fail f u == 0 (small order point). Therefore we detect both
+	// small order points and points on the twist.
 	Fe fres;
-	if (sqrt_ratio_m1 (fres, fu, fz) != 0) {
-		return -1;
-	}
+	mul (fres, fu, fz);
+	int err = invsqrt (fres, fres);
+	mul (fres, fres, fu);
 	square (fres, fres);
 	reduce_store (res, fres);
-	return 0;
+	return err;
 }
 
-// The scalar must be a multiple of eight.
-int cu25519_shared_secret (uint8_t res[32], const Cu25519Ris &A, const Cu25519Sec &scalar)
+static void ristretto_ladder_imp_unchecked (uint8_t res[32], const Cu25519Ris &A, const uint8_t scalar[32], int startbit=255)
 {
-	return ristretto_ladder_imp (res, A, scalar.b);
+	// s must be even for valid ristretto encodings.
+//  if (A.b[0] & 1) return -1;
+	Fe s2;
+	load (s2, A.b);
+	square (s2, s2);
+	Fe fu, fz;
+	montgomery_ladder (fu, fz, s2, scalar, startbit);
+	invert (fz, fz);
+	mul (fu, fu, fz);
+	reduce_store (res, fu);
 }
+
+
+// The scalar must be a multiple of eight.
+int cu25519_shared_secret_checked (uint8_t res[32], const Cu25519Ris &A, const Cu25519Sec &scalar)
+{
+	return ristretto_ladder_imp_checked (res, A, scalar.b);
+}
+void cu25519_shared_secret_unchecked (uint8_t res[32], const Cu25519Ris &A, const Cu25519Sec &scalar)
+{
+	ristretto_ladder_imp_unchecked (res, A, scalar.b);
+}
+
+void cu25519_shared_secret (uint8_t res[32], const Cu25519Ris &A,
+                            const Cu25519Sec &scalar)
+{
+	if (ristretto_ladder_imp_checked (res, A, scalar.b) != 0) {
+		throw std::runtime_error (_("Wrong public key shared secret (Ris)."));
+	}
+}
+
 
 // Multiply the scalar by eight.
 inline void shift8_scalar (uint8_t newsc[33], const uint8_t oldsc[32])
@@ -2432,14 +2469,41 @@ inline void shift8_scalar (uint8_t newsc[33], const uint8_t oldsc[32])
 
 // Works with any scalar. If first multiplies the scalar by 8 and then
 // performs the scalar multiplication.
-int cu25519_shared_secret_cof (uint8_t res[32], const Cu25519Ris &A, const Cu25519Sec &scalar)
+int cu25519_shared_secret_cof_checked (uint8_t res[32], const Cu25519Ris &A, const Cu25519Sec &scalar)
 {
 	uint8_t nsc[33];
 	shift8_scalar (nsc, scalar.b);
 	// Given the input with 256 bits we now have 259 bits of scalar. The
 	// actual ladder routine works with any number of bits.
-	return ristretto_ladder_imp (res, A, nsc, 258);
+	return ristretto_ladder_imp_checked (res, A, nsc, 258);
 }
+
+void cu25519_shared_secret_cof_unchecked (uint8_t res[32], const Cu25519Ris &A, const Cu25519Sec &scalar)
+{
+	uint8_t nsc[33];
+	shift8_scalar (nsc, scalar.b);
+	// Given the input with 256 bits we now have 259 bits of scalar. The
+	// actual ladder routine works with any number of bits.
+	ristretto_ladder_imp_unchecked (res, A, nsc, 258);
+}
+
+void cu25519_shared_secret_cof (uint8_t res[32], const Cu25519Ris &A,
+                                const Cu25519Sec &scalar)
+{
+	if (cu25519_shared_secret_cof_checked (res, A, scalar) != 0) {
+		throw std::runtime_error (_("Wrong public key shared secret cofactor (Ris)."));
+	}
+}
+
+
+void cu25519_shared_secret (uint8_t sh[32], const Cu25519Mon &mon,
+                            const Cu25519Sec &scalar)
+{
+	if (cu25519_shared_secret_checked (sh, mon, scalar) != 0) {
+		throw std::runtime_error (_("Wrong public key shared secret (Mon)."));
+	}
+}
+
 
 
 // Verify a ristretto signature using qdsa, no Edwards arithmetic.

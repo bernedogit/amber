@@ -503,10 +503,10 @@ static void montgomery_ladder (Fe &x2, Fe &z2, Fe &x3, Fe &z3, const Fe &x1, con
 // 255 and works with bits 0-254 of the scalar. X25519 requires that bit 254
 // is always set and bits 0-2 are cleared. This routine works with anything
 // and you must ensure that the scalar's bits have been properly masked.
-void montgomery_ladder (Fe &res, const Fe &xp, const uint8_t scalar[32])
+void montgomery_ladder (Fe &res, const Fe &xp, const uint8_t scalar[32], int startbit)
 {
 	Fe x2, z2, x3, z3;
-	montgomery_ladder (x2, z2, x3, z3, xp, scalar);
+	montgomery_ladder (x2, z2, x3, z3, xp, scalar, startbit);
 	invert (z2, z2);
 	mul (res, x2, z2);
 }
@@ -521,10 +521,10 @@ void montgomery_ladder (Fe &u, Fe &z, const Fe &xp, const uint8_t scalar[32], in
 
 // Montgomery ladder with recovery of projective X:Y:Z coordinates.
 void montgomery_ladder_uv (Fe &resu, Fe &resv, Fe &resz,
-            const Fe &xpu, const Fe &xpv, const uint8_t scalar[32])
+            const Fe &xpu, const Fe &xpv, const uint8_t scalar[32], int startbit)
 {
 	Fe x2, z2, x3, z3;
-	montgomery_ladder (x2, z2, x3, z3, xpu, scalar);
+	montgomery_ladder (x2, z2, x3, z3, xpu, scalar, startbit);
 
 	// Algorithm 1 of Okeya and Sakurai, "Efficient Elliptic Curve
 	// Cryptosystems from a Scalar multiplication algorithm with recovery of
@@ -552,10 +552,10 @@ void montgomery_ladder_uv (Fe &resu, Fe &resv, Fe &resz,
 }
 
 // Montgomery ladder with recovery of affine U and V coordinates.
-void montgomery_ladder_uv (Fe &resu, Fe &resv, const Fe &xpu, const Fe &xpv, const uint8_t scalar[32])
+void montgomery_ladder_uv (Fe &resu, Fe &resv, const Fe &xpu, const Fe &xpv, const uint8_t scalar[32], int startbit)
 {
 	Fe resz;
-	montgomery_ladder_uv (resu, resv, resz, xpu, xpv, scalar);
+	montgomery_ladder_uv (resu, resv, resz, xpu, xpv, scalar, startbit);
 	invert (resz, resz);
 	mul (resu, resu, resz);
 	mul (resv, resv, resz);
@@ -601,18 +601,18 @@ void mont_to_edwards (Edwards &e, const Fe &u, const Fe &v, const Fe &z)
 }
 
 // Montgomery ladder with result as Edwards point.
-void montgomery_ladder (Edwards &res, const Fe &xpu, const Fe &xpv, const uint8_t scalar[32])
+void montgomery_ladder (Edwards &res, const Fe &xpu, const Fe &xpv, const uint8_t scalar[32], int startbit)
 {
 	Fe u, v, z;
-	montgomery_ladder_uv (u, v, z, xpu, xpv, scalar);
+	montgomery_ladder_uv (u, v, z, xpu, xpv, scalar, startbit);
 	mont_to_edwards (res, u, v, z);
 }
 
-void montgomery_ladder (Edwards &res, const Edwards &p, const uint8_t scalar[32])
+void montgomery_ladder (Edwards &res, const Edwards &p, const uint8_t scalar[32], int startbit)
 {
 	Fe u, v;
 	edwards_to_mont (u, v, p);
-	montgomery_ladder (res, u, v, scalar);
+	montgomery_ladder (res, u, v, scalar, startbit);
 }
 
 // Base point in Montgomery coordinates.
@@ -626,25 +626,25 @@ static const Fe bv = { 0x1c5a27eced3d9, 0x7cdaf8c36453d, 0x523453248f535,
                        0x35a700f6e963b, 0x20ae19a1b8a08 };
 #endif
 
-void montgomery_base (Fe &u, Fe &v, Fe &z, const uint8_t scalar[32])
+void montgomery_base (Fe &u, Fe &v, Fe &z, const uint8_t scalar[32], int startbit)
 {
-	montgomery_ladder_uv (u, v, z, bu, bv, scalar);
+	montgomery_ladder_uv (u, v, z, bu, bv, scalar, startbit);
 }
 
-void montgomery_base (Fe &u, Fe &v, const uint8_t scalar[32])
+void montgomery_base (Fe &u, Fe &v, const uint8_t scalar[32], int startbit)
 {
-	montgomery_ladder_uv (u, v, bu, bv, scalar);
+	montgomery_ladder_uv (u, v, bu, bv, scalar, startbit);
 }
 
-void montgomery_base (Edwards &e, const uint8_t scalar[32])
+void montgomery_base (Edwards &e, const uint8_t scalar[32], int startbit)
 {
-	montgomery_ladder (e, bu, bv, scalar);
+	montgomery_ladder (e, bu, bv, scalar, startbit);
 }
 
-void montgomery_base (uint8_t mx[32], const uint8_t scalar[32])
+void montgomery_base (uint8_t mx[32], const uint8_t scalar[32], int startbit)
 {
 	Fe u, v, z;
-	montgomery_ladder_uv (u, v, z, bu, bv, scalar);
+	montgomery_ladder_uv (u, v, z, bu, bv, scalar, startbit);
 	// x = Cu/v
 	Fe t1, t2;
 	mul (t1, v, z);
@@ -663,33 +663,47 @@ void montgomery_base (uint8_t mx[32], const uint8_t scalar[32])
 
 
 
-// It ignores bit 255 and works with bits 0-254 of the scalar. X25519
-// requires that bit 254 is always set and bits 0-2 are cleared. This
-// routine works with anything and you must ensure that the scalar's bits
-// hav been properly masked.
-void montgomery_ladder (uint8_t res[32], const uint8_t pointx[32], const uint8_t scalar[32])
-{
-	Fe feres, fex;
-	load (fex, pointx);
-	montgomery_ladder (feres, fex, scalar);
-	reduce_store (res, feres);
+// X25519 requires that bit 254 is always set and bits 0-2 are cleared. This
+// routine works with anything and you must ensure that the scalar's bits have
+// been properly masked.
 
-#if 0
-	// DJB does not check for multiplication of small order points. There is
-	// a debate about whether this is needed or not. We can protect against
-	// Eve sending us a small order point. Eve could also fool some
-	// protocols by sending a point P + S, where S is a small order point.
-	// Multiplying by the cofactor clears S. A small order point means that
-	// a DH with it does not contribute to the final key in a protocol. The
-	// IETF wants to check for this case. However this should be handled by
-	// the protocol, for instance Noise does handle it correctly.
-	uint8_t notzero = 0;
-	for (int i = 0; i < 32; ++i) notzero |= res[i];
-	if (notzero == 0) {
-		throw_rte (_("Scalar multiplication returns 0. You were passed a malicious point."));
-	}
-#endif
+// DJB does not check for multiplication of small order points. There is a
+// debate about whether this is needed or not. We can protect against Eve
+// sending us a small order point. Eve could also fool some protocols by
+// sending a point P + S, where S is a small order point. Multiplying by the
+// cofactor clears S. A small order point means that a DH with it does not
+// contribute to the final key in a protocol. The IETF wants to check for
+// this case. Our check will reject small order points and points which are
+// not on the curve.
+
+int montgomery_ladder_checked (uint8_t res[32], const uint8_t pointx[32], const uint8_t scalar[32], int startbit)
+{
+	Fe fu, fz, fb;
+	load (fb, pointx);
+	montgomery_ladder (fu, fz, fb, scalar, startbit);
+
+	// The final point is a multiple of two times the pointx. Therefore its u
+	// coordinate must be a square. This rejects twist points and small order
+	// points.
+	Fe fres;
+	mul (fres, fu, fz);
+	int err = invsqrt (fres, fres);
+	mul (fres, fres, fu);
+	square (fres, fres);
+	reduce_store (res, fres);
+	return err;
 }
+
+void montgomery_ladder_unchecked (uint8_t res[32], const uint8_t pointx[32], const uint8_t scalar[32], int startbit)
+{
+	Fe fu, fz, fb;
+	load (fb, pointx);
+	montgomery_ladder (fu, fz, fb, scalar, startbit);
+	invert (fz, fz);
+	mul (fu, fu, fz);
+	reduce_store (res, fu);
+}
+
 
 // Elligator 2
 

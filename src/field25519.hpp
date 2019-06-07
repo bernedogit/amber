@@ -211,7 +211,7 @@ EXPORTFN int invsqrt (Fe &res, const Fe &x);
 // Return 0 if there is a square root. 1 if there isn't one. Constant time.
 EXPORTFN int sqrt (Fe &res, const Fe &x);
 
-// If u/v is a square *res = sqrt(u/v) and return 0. If u/v is not a square
+// If u/v is a square *res = +sqrt(u/v) and return 0. If u/v is not a square
 // *res = sqrt(iu/v) and return 1. Constant time.
 EXPORTFN int sqrt_ratio_m1 (Fe &res, const Fe &u, const Fe &v);
 
@@ -230,18 +230,23 @@ inline int ct_is_zero (const Fe &u)
 }
 
 
-// The Montgomery ladder ignores bit 255 and works with bits 0-254 of the
-// scalar. X25519 requires that bit 254 is always set and bits 0-2 are
-// cleared. These routines work with anything. In X25519 bits 0-2 are cleared
-// so that the scalar is a multiple of the cofactor and bit 254 is set so
-// that other variable time implementations become effectively constant
-// time. The masking is not required with this implementation. This
-// implementation works with any scalar using all 256 bits.
+// X25519 requires that bit 254 is always set and bits 0-2 are cleared.
+// These routines work with anything. In X25519 bits 0-2 are cleared so that
+// the scalar is a multiple of the cofactor and bit 254 is set so that other
+// variable time implementations become effectively constant time. The
+// masking is not required with this implementation. This implementation
+// works with any scalar using all 256 bits.
+
+// Normal X only scalar multiplication. It will return 0 on success. It
+// rejects points which are not on the curve and small order points.
+EXPORTFN int montgomery_ladder_checked (uint8_t res[32], const uint8_t pointx[32], const uint8_t scalar[32], int startbit=254);
+// Same but accepts every input. This is the original version by DJB.
+EXPORTFN void montgomery_ladder_unchecked (uint8_t res[32], const uint8_t pointx[32], const uint8_t scalar[32], int startbit=254);
+
 
 // Normal X only scalar multiplication.
-EXPORTFN void montgomery_ladder (uint8_t res[32], const uint8_t pointx[32], const uint8_t scalar[32]);
-EXPORTFN void montgomery_ladder (Fe &res, const Fe &xp, const uint8_t scalar[32]);
-EXPORTFN void montgomery_ladder (Fe &u, Fe &z, const Fe &xp, const uint8_t scalar[32], int startbit=255);
+EXPORTFN void montgomery_ladder (Fe &res, const Fe &xp, const uint8_t scalar[32], int startbit=254);
+EXPORTFN void montgomery_ladder (Fe &u, Fe &z, const Fe &xp, const uint8_t scalar[32], int startbit=254);
 
 
 // Montgomery ladder with recovery of Y coordinate. bu and bv are the affine
@@ -250,29 +255,29 @@ EXPORTFN void montgomery_ladder (Fe &u, Fe &z, const Fe &xp, const uint8_t scala
 
 // Result in projective Montgomery coordinates.
 EXPORTFN void montgomery_ladder_uv (Fe &resu, Fe &resv, Fe &resz, const Fe &bu,
-                                    const Fe &bv, const uint8_t scalar[32]);
+                                    const Fe &bv, const uint8_t scalar[32], int startbit=254);
 // Result in affine Montgomery coordinates.
 EXPORTFN void montgomery_ladder_uv (Fe &resu, Fe &resv, const Fe &bu, const Fe &bv,
-                                    const uint8_t scalar[32]);
+                                    const uint8_t scalar[32], int startbit=254);
 // Result in Edwards coordinates.
 EXPORTFN void montgomery_ladder (Edwards &res, const Fe &bu, const Fe &bv,
-                                 const uint8_t scalar[32]);
+                                 const uint8_t scalar[32], int startbit=254);
 
 // Edwards to Edwards. Internal conversion to Montgomery affine coordinates
 // and then the ladder.
-EXPORTFN void montgomery_ladder (Edwards &res, const Edwards &p, const uint8_t scalar[32]);
+EXPORTFN void montgomery_ladder (Edwards &res, const Edwards &p, const uint8_t scalar[32], int startbit=254);
 
 
 // Scalar multiplication of base point using the Montgomery ladder. Return
 // the result in projective Montgomery, Edwards coordinates or affine
 // Montgomery. The first two take equal time and less than the third one.
-EXPORTFN void montgomery_base (Fe &u, Fe &v, Fe &z, const uint8_t scalar[32]);
-EXPORTFN void montgomery_base (Edwards &e, const uint8_t scalar[32]);
-EXPORTFN void montgomery_base (Fe &u, Fe &v, const uint8_t scalar[32]);
+EXPORTFN void montgomery_base (Fe &u, Fe &v, Fe &z, const uint8_t scalar[32], int startbit=254);
+EXPORTFN void montgomery_base (Edwards &e, const uint8_t scalar[32], int startbit=254);
+EXPORTFN void montgomery_base (Fe &u, Fe &v, const uint8_t scalar[32], int startbit=254);
 
 // Directly store as the montgomery u coordinate with the sign bit of the
 // Edwards x coordinate.
-EXPORTFN void montgomery_base (uint8_t mx[32], const uint8_t scalar[32]);
+EXPORTFN void montgomery_base (uint8_t mx[32], const uint8_t scalar[32], int startbit=254);
 
 // Full conversion between Montgomery and Edwards.
 EXPORTFN void edwards_to_mont (Fe &u, Fe &v, const Edwards &e);
@@ -925,5 +930,5 @@ inline void square (Fe64 &res, const Fe64 &f)
 
 
 #endif
-		 
+
 

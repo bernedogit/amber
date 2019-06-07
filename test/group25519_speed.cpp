@@ -1,4 +1,4 @@
-/*                         
+/*
  * Copyright (c) 2015-2018, Pelayo Bernedo
  * All rights reserved.
  *
@@ -107,6 +107,16 @@ void measure(int n)
 	memcpy (txs2.b, x2s.b, 32);
 	memcpy (txs3.b, x3s.b, 32);
 
+	// This first loop may be much slower due to caches being empty! We
+	// repeat it later.
+	t1 = Clock::now();
+	for (int i = 0; i < n; ++i) {
+		cu25519_generate (&x1s, &x1m);
+		cu25519_generate (&x2s, &x2m);
+	}
+	t2 = Clock::now();
+	format(std::cout, "cu25519 Montgomery key generation: %d\n", (t2 - t1)/n/2);
+
 	t1 = Clock::now();
 	for (int i = 0; i < n; ++i) {
 		cu25519_generate (&x1s, &x1r);
@@ -186,9 +196,20 @@ void measure(int n)
 		cu25519_shared_secret(shs2, x2m, x1s);
 	}
 	t2 = Clock::now();
-	std::cout << "cu25519 shared secret: " << (t2 - t1)/n/2 << '\n';
+	std::cout << "cu25519 shared secret (Montgomery): " << (t2 - t1)/n/2 << '\n';
 	if (amber::crypto_neq(shs1, shs2, 32)) {
 		std::cout << "error in cu25519_shared_secret\n";
+	}
+
+	t1 = Clock::now();
+	for (int i = 0; i < n; ++i) {
+		cu25519_shared_secret_unchecked (shs1, x1m, x2s);
+		cu25519_shared_secret_unchecked (shs2, x2m, x1s);
+	}
+	t2 = Clock::now();
+	std::cout << "cu25519 shared secret unchecked (Montgomery): " << (t2 - t1)/n/2 << '\n';
+	if (amber::crypto_neq(shs1, shs2, 32)) {
+		std::cout << "error in cu25519_shared_secret_unchecked\n";
 	}
 
 	t1 = Clock::now();
@@ -388,14 +409,29 @@ void measure(int n)
 	t2 = Clock::now();
 	std::cout << "Ristretto ladder_cof: " << (t2 - t1)/n << '\n';
 
+	t1 = Clock::now();
+	for (int i = 0; i < n; ++i) {
+		cu25519_shared_secret_unchecked (rsmul, ris, x1s);
+	}
+	t2 = Clock::now();
+	std::cout << "Ristretto ladder unchecked: " << (t2 - t1)/n << '\n';
+
 	Fe fe1, fe2;
 	uint8_t scr[32];
 	randombytes_buf (scr, 32);
 	load (fe1, scr);
 	fe2 = fe1;
-	int fen = n * 100;
+	int fen = n * 10;
 
-	std::cout << "Loops enlarged 100 times\n";
+	std::cout << "Loops enlarged 10 times\n";
+
+	t1 = Clock::now();
+	for (int i = 0; i < fen; ++i) {
+		invert (fe2, fe1);
+	}
+	t2 = Clock::now();
+	format (std::cout, "invert() took %d\n", (t2 - t1)/n);
+
 	t1 = Clock::now();
 	for (int i = 0; i < fen; ++i) {
 		sqrt (fe1, fe1);
@@ -578,19 +614,13 @@ void test_bad_keys()
 	randombytes_buf(xs.b, 32);
 	cu25519_generate (&xs, &xp);
 	memset(xp0.b, 0, 32);
-	try {
-		cu25519_shared_secret (sh, xp0, xs);
-	} catch (...) {}  // We just want to show the result!
+	cu25519_shared_secret_unchecked (sh, xp0, xs);
 	show_block(std::cout, "DH with 0 ", sh, 32);
-	try {
-		cu25519_shared_secret (sh, xpm1, xs);
-	} catch (...) {}
+	cu25519_shared_secret_unchecked (sh, xpm1, xs);
 	show_block(std::cout, "DH with -1", sh, 32);
-	try {
-		cu25519_shared_secret(sh, xp1, xs);
-	} catch (...) {}
+	cu25519_shared_secret_unchecked (sh, xp1, xs);
 	show_block(std::cout, "DH with 1 ", sh, 32);
-	cu25519_shared_secret (sh, xp2, xs);
+	cu25519_shared_secret_unchecked (sh, xp2, xs);
 	show_block(std::cout, "DH with 2 ", sh, 32);
 
 	Edwards e;

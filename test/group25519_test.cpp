@@ -32,6 +32,7 @@
 #include <string.h>
 #include <fstream>
 #include <iomanip>
+#include <assert.h>
 
 using namespace amber;
 
@@ -724,8 +725,9 @@ void test_ristretto_ladder()
 
 	Cu25519Sec sc1, sc2;
 	Cu25519Ris rs1, rs2;
+	Cu25519Mon mx1, mx2;
 	Edwards p1, p2;
-	uint8_t lad1[32], lad2[32];
+	uint8_t lad1[32], lad2[32], lad3[32], lad4[32];
 	int nwrong = 0;
 	enum { ladder_tests = 1000 };
 	for (int i = 0; i < ladder_tests; ++i) {
@@ -734,16 +736,43 @@ void test_ristretto_ladder()
 		if (i == 0) {
 			memcpy (sc1.b, L1, 32);
 		}
+		// Check for any scalar, not just the masked ones.
 		scalarbase (p1, sc1.b);
 		scalarbase (p2, sc2.b);
 		edwards_to_ristretto (rs1.b, p1);
 		edwards_to_ristretto (rs2.b, p2);
-		int errc1 = cu25519_shared_secret_cof (lad1, rs1, sc2);
-		int errc2 = cu25519_shared_secret_cof (lad2, rs2, sc1);
+		edwards_to_mxs (mx1.b, p1);
+		edwards_to_mxs (mx2.b, p2);
+		int errc1 = cu25519_shared_secret_cof_checked (lad1, rs1, sc2);
+		int errc2 = cu25519_shared_secret_cof_checked (lad2, rs2, sc1);
 		if (errc1 != 0 || errc2 != 0) {
 			format (std::cout, "Error in risladder\n");
 		}
 		if (crypto_neq (lad1, lad2, 32)) {
+			nwrong++;
+		}
+
+		// Check that the ladder outputs from Ristretto and Montgomery inputs
+		// are the same.
+		mask_scalar (sc1.b);
+		mask_scalar (sc2.b);
+		scalarbase (p1, sc1.b);
+		scalarbase (p2, sc2.b);
+		edwards_to_ristretto (rs1.b, p1);
+		edwards_to_ristretto (rs2.b, p2);
+		edwards_to_mxs (mx1.b, p1);
+		edwards_to_mxs (mx2.b, p2);
+		errc1 = cu25519_shared_secret_checked (lad1, rs1, sc2);
+		errc2 = cu25519_shared_secret_checked (lad2, rs2, sc1);
+		int errc3 = cu25519_shared_secret_checked (lad3, mx1, sc2);
+		int errc4 = cu25519_shared_secret_checked (lad4, mx2, sc1);
+		if (errc1 != 0 || errc2 != 0) {
+			format (std::cout, "Error in risladder\n");
+		}
+		if (errc3 != 0 || errc4 != 0) {
+			format (std::cout, "Error in mont ladder\n");
+		}
+		if (crypto_neq (lad1, lad2, 32) || crypto_neq (lad1, lad3, 32) || crypto_neq (lad1, lad4, 32)) {
 			nwrong++;
 		}
 	}
@@ -751,19 +780,22 @@ void test_ristretto_ladder()
 }
 
 
+
 void test_sqrt_m1 (int count)
 {
 	static const Fe feone = { 1 };
 	static const Fe fezero = { 0 };
 	Fe root;
-	int ok = sqrt_ratio_m1 (root, feone, feone);
-	format (std::cout, "ok=%d  root(1/1)=%s\n", ok, root);
-	ok = sqrt_ratio_m1 (root, fezero, feone);
-	format (std::cout, "ok=%d  root(0/1)=%s\n", ok, root);
-	ok = sqrt_ratio_m1 (root, feone, fezero);
-	format (std::cout, "ok=%d  root(1/0)=%s\n", ok, root);
-	ok = sqrt_ratio_m1 (root, fezero, fezero);
-	format (std::cout, "ok=%d  root(0/0)=%s\n", ok, root);
+	int err = sqrt_ratio_m1 (root, feone, feone);
+	format (std::cout, "err=%d  root(1/1)=%s\n", err, root);
+	err = sqrt_ratio_m1 (root, fezero, feone);
+	format (std::cout, "err=%d  root(0/1)=%s\n", err, root);
+	err = sqrt_ratio_m1 (root, feone, fezero);
+	format (std::cout, "err=%d  root(1/0)=%s\n", err, root);
+	err = sqrt_ratio_m1 (root, fezero, fezero);
+	format (std::cout, "err=%d  root(0/0)=%s\n", err, root);
+	err = invsqrt (root, fezero);
+	format (std::cout, "err=%d  invsqrt(0)=%s\n", err, root);
 
 	for (int i = 0; i < count; ++i) {
 		uint8_t sc[32];
@@ -779,13 +811,56 @@ void test_sqrt_m1 (int count)
 	}
 }
 
+enum { A = 486662 };
+
+bool is_in_curve (const Fe &u)
+{
+	// v² = u³+Au²+u
+	Fe u2, v2;
+	square (u2, u);
+	mul_small (v2, u2, A);
+	add (v2, v2, u);
+	mul (u2, u2, u);
+	add (v2, v2, u2);
+	return sqrt (u2, v2) == 0;
+}
+
+
+void test_curve_point (int count)
+{
+	for (int i = 0; i < count; ++i) {
+		uint8_t s[32], u[32];
+		randombytes_buf (s, 32);
+		mask_scalar (s);
+		Fe fu, fmu, fmz;
+		load (fu, s);
+		montgomery_ladder (fmu, fmz, fu, s);
+
+		Edwards ep;
+		reduce_store (u, fu);
+		bool is_point = mxs_to_edwards (ep, u, false) == 0;
+		bool is_i_curve = is_in_curve (fu);
+		assert (is_point == is_i_curve);
+
+		Fe zu, isr, mu;
+		mul (zu, fmu, fmz);
+		bool is_sqr = invsqrt (isr, zu) == 0;
+		invert (mu, fmz);
+		mul (mu, mu, fmu);
+		bool is_m_curve = is_in_curve (mu);
+
+		assert (is_point == is_sqr);
+		assert (is_i_curve == is_m_curve);
+	}
+	format (std::cout, "%d points tested for twist and small order rejection\n", count);
+}
+
 
 int main()
 {
 	test_ristretto(200);
 	test_ristretto_sign(100);
 	test_ristretto_ladder();
-//  small_ris();
 	test_curvesig();
 	test_x25519();
 	test_ed25519 (ietf, sizeof(ietf)/sizeof(ietf[0]));
@@ -794,5 +869,6 @@ int main()
 	test_conv();
 	test_scalarmult();
 	test_sqrt_m1(5);
+	test_curve_point (1000);
 }
 

@@ -135,8 +135,9 @@ EXPORTFN std::ostream & operator<< (std::ostream &os, const Edwards &rhs);
 // OPERATIONS IN EDWARDS COORDINATES
 
 // For scalar multiplication of the base in constant time use scalarbase().
-// For double scalar multiplication in variable time use scalarmult_wnaf().
-// For single scalar multiplication in constant time use montgomery_ladder().
+// For single and double scalar multiplication in variable time use
+// scalarmult_wnaf(). For single scalar multiplication in constant time use
+// montgomery_ladder().
 
 // Compute sB using precomputed multiples of B (the base point). Constant
 // time. Works with scalars of 256 bits. Very fast.
@@ -263,9 +264,9 @@ EXPORTFN void ed25519_seed_to_ey (uint8_t ey[32], const uint8_t seed[32]);
 // Sign the given message, m[0..mlen[ with the secret scalar. Mx is the
 // public Montgomery X. This function uses Blake2b as hash. The prefix
 // (including the terminating null) is prepended to the message.
-EXPORTFN void sign_bmx (const char *prefix, const uint8_t *m, size_t mlen, 
-						const uint8_t mx[32], const uint8_t scalar[32], 
-						uint8_t sig[64]);
+EXPORTFN void sign_bmx (const char *prefix, const uint8_t *m, size_t mlen,
+                        const uint8_t mx[32], const uint8_t scalar[32],
+                        uint8_t sig[64]);
 
 // Check the signature sig[0..63] for the message m[0..mlen[ using mx as A
 // for the hashing in H(RAM) and decompressing mx to the public point of
@@ -319,7 +320,7 @@ EXPORTFN void cu25519_elligator2_rev (Cu25519Mon *u, const Cu25519Ell & rep);
 
 // KEY GENERATION
 
-// Fill scalarwith random bytes and call this function. It will adjust scalar
+// Fill scalar with random bytes and call this function. It will adjust scalar
 // and generate the corresponding public Montgomery u. The scalar will be
 // masked according to X25519.
 EXPORTFN void cu25519_generate (Cu25519Sec *scalar, Cu25519Mon *mon);
@@ -338,35 +339,61 @@ EXPORTFN void cu25519_generate (Cu25519Pair *pair);
 EXPORTFN void cu25519_generate_no_mask (const Cu25519Sec &scalar, Cu25519Ris *ris);
 
 
+
+
 // DH. Compute the shared secret. Needs hashing before use. Use mix_key() for
 // that.
 
-// From scalar and Montgomery.
-inline void cu25519_shared_secret (uint8_t sh[32], const Cu25519Mon &mon,
-                                   const Cu25519Sec &scalar)
+// From scalar and Montgomery. Return 0 on success. Reject points of small
+// order and on the twist.
+inline int cu25519_shared_secret_checked (uint8_t sh[32], const Cu25519Mon &mon,
+                                          const Cu25519Sec &scalar)
 {
-	montgomery_ladder (sh, mon.b, scalar.b);
+	return montgomery_ladder_checked (sh, mon.b, scalar.b, 255);
 }
+// No checks. Just like in the original Curve25519.
+inline void cu25519_shared_secret_unchecked (uint8_t sh[32], const Cu25519Mon &mon,
+                                             const Cu25519Sec &scalar)
+{
+	montgomery_ladder_unchecked (sh, mon.b, scalar.b, 255);
+}
+// Checks and throws on error.
+EXPORTFN void cu25519_shared_secret (uint8_t sh[32], const Cu25519Mon &mon,
+                                     const Cu25519Sec &scalar);
 
 
 // DH using a montgomery ladder and Ristretto. Works only if the scalar is a
 // multiple  of 8. It reuses the montgomery ladder of X25519 and is as fast.
-// The scalar has 256 bits. Return 0 if successful, -1 if the point is not
-// on the curve.
-EXPORTFN int cu25519_shared_secret (uint8_t res[32], const Cu25519Ris &A, 
-									const Cu25519Sec &scalar);
+// The scalar has 255 bits. Return 0 if successful. It returns non zero if
+// the  resulting point is not on the curve or it is zero.
+EXPORTFN int
+cu25519_shared_secret_checked (uint8_t res[32], const Cu25519Ris &A,
+                               const Cu25519Sec &scalar);
+// No checks.
+EXPORTFN void
+cu25519_shared_secret_unchecked (uint8_t res[32], const Cu25519Ris &A,
+                                 const Cu25519Sec &scalar);
 
+// Checks and throws on error.
+EXPORTFN void cu25519_shared_secret (uint8_t res[32], const Cu25519Ris &A,
+                                     const Cu25519Sec &scalar);
 
 
 // DH using a montgomery ladder and Ristretto. If multiplies the scalar by 8
 // before computing the product. It works for scalars that are not a multiple
 // of 8. Almost as fast as above. The scalar has 256 bits. Return 0 if
-// successful, -1 if the point is not on the curve. This test is not as
-// exhaustive as ristretto_to_edwards() because it does not care if the
-// supplied representative of the coset is the correct one.
-EXPORTFN int cu25519_shared_secret_cof (uint8_t res[32], const Cu25519Ris &A,
-                                        const Cu25519Sec &scalar);
-
+// successful. Return non zero if point was not on the curve or was small
+// order.
+EXPORTFN int
+cu25519_shared_secret_cof_checked (uint8_t res[32], const Cu25519Ris &A,
+                                   const Cu25519Sec &scalar);
+// No checks. Everything accepted.
+EXPORTFN void
+cu25519_shared_secret_cof_unchecked (uint8_t res[32], const Cu25519Ris &A,
+                                     const Cu25519Sec &scalar);
+// Checks and throws on error.
+EXPORTFN void cu25519_shared_secret_cof (uint8_t res[32], const Cu25519Ris &A,
+                                         const Cu25519Sec &scalar);
 
 
 // SIGNATURES
@@ -386,6 +413,7 @@ EXPORTFN void cu25519_sign (const char *prefix, const uint8_t *m, size_t mlen,
 EXPORTFN int cu25519_verify (const char *prefix, const uint8_t *m,
                              size_t mlen, const uint8_t sig[64],
                              const Cu25519Ris &A);
+
 
 // Verify a ristretto signature using qDSA and Montgomery, no Edwards
 // arithmetic. Return 0 on success.

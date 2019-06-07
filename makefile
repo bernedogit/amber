@@ -12,7 +12,7 @@ endif
 
 CCFLAGS=-Wall -Wextra -std=gnu++11
 CCDEBUG=-ftrapv -g
-CCOPTIMIZED=-O2
+CCOPTIMIZED=-O2 -march=native
 LIBS=-lz -lpthread
 BIN=bin
 INCLUDE=src
@@ -120,7 +120,7 @@ bin/group25519_test.o bin/group25519_test-pic.o : test/group25519_test.cpp \
     src/misc.hpp  src/soname.hpp  src/symmetric.hpp  src/blake2.hpp  \
     src/group25519.hpp  src/field25519.hpp  src/hasopt.hpp  
 
-bin/grouped.o bin/grouped-pic.o : test/grouped.cpp 
+bin/grouped.o bin/grouped-pic.o : test/grouped.cpp test/grouped.hpp  
 
 bin/hasopt.o bin/hasopt-pic.o : src/hasopt.cpp src/hasopt.hpp  src/soname.hpp  
 
@@ -219,6 +219,9 @@ bin/tweetamber-mxs.o bin/tweetamber-mxs-pic.o : src/tweetamber-mxs.cpp \
     src/tweetamber.hpp  src/soname.hpp  
 
 bin/tweetcmd.o bin/tweetcmd-pic.o : src/tweetcmd.cpp src/tweetamber.hpp  \
+    src/soname.hpp  src/misc.hpp  
+
+bin/tweetcmd2.o bin/tweetcmd2-pic.o : src/tweetcmd2.cpp src/tweetamber.hpp  \
     src/soname.hpp  src/misc.hpp  
 
 bin/tweetcmdcu.o bin/tweetcmdcu-pic.o : src/tweetcmdcu.cpp src/tweetamber.hpp  \
@@ -433,6 +436,13 @@ bin/tweetcmd-pic: \
     bin/tweetamber-pic.o bin/hasopt-pic.o bin/misc-pic.o bin/tweetcmd-pic.o  \
     bin/blake2-pic.o
 
+bin/tweetcmd2: \
+    bin/tweetamber.o bin/hasopt.o bin/misc.o bin/tweetcmd2.o bin/blake2.o
+
+bin/tweetcmd2-pic: \
+    bin/tweetamber-pic.o bin/hasopt-pic.o bin/misc-pic.o bin/tweetcmd2-pic.o  \
+    bin/blake2-pic.o
+
 bin/tweetcmdcu: \
     bin/tweetamber.o bin/hasopt.o bin/misc.o bin/tweetcmdcu.o bin/blake2.o
 
@@ -453,6 +463,7 @@ FULL_TARGETS =  bin/altsig bin/amber bin/blake2_test bin/blakerng bin/blockbuf_t
     bin/group25519_test bin/hkdf_test bin/libamber.a bin/libamber$(SOV)  \
     bin/noise_test bin/noisestream bin/passstrength bin/protobuf_test  \
     bin/protodump bin/show_randdev bin/speed_test bin/symmetric_test  \
-    bin/tamper bin/twcmp bin/tweetcmd bin/tweetcmdcu bin/wipe
+    bin/tamper bin/twcmp bin/tweetcmd bin/tweetcmd2 bin/tweetcmdcu  \
+    bin/wipe
 full_targets: $(FULL_TARGETS)
 FULL_LIB_HEADERS = $(DEPS_libamber) 
