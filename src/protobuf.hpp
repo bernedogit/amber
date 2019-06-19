@@ -39,7 +39,8 @@
 
 namespace amber { namespace AMBER_SONAME {
 
-// Conversion between signed and unsigned forms.
+// Conversion between signed and unsigned forms. The signed forms use Zig
+// Zag encoding.
 inline uint64_t z2uleb (int64_t i)
 {
 	enum { scount = 64 - 1 };
@@ -56,7 +57,8 @@ inline int64_t u2zleb (uint64_t u)
 // The following return the number of bytes written. Buf must have at least
 // 10 bytes.
 
-// Write a signed int in LEB128 with ZigZag encoding. Return the number of bytes written.
+// Write a signed int in LEB128 with ZigZag encoding. Return the number of
+// bytes written.
 EXPORTFN size_t write_zleb (int64_t i, char *buf);
 // Write an unsigned int in LEB128. Return the number of bytes written.
 EXPORTFN size_t write_uleb (uint64_t i, char *buf);
@@ -83,10 +85,10 @@ constexpr uint32_t maketag (uint32_t id, Wire_type wt)
 
 
 // The writer keeps a buffer in memory. All groups that fit in memory are
-// written to the output in group_len format. Items that do not fit in
-// memory are written to the file. If the file is seekable they will also be
-// in group_len format. If the file is not seekable they will be in
-// group_start/group_end format.
+// written to the output in group_len or length_val format. Items that do
+// not fit in memory are written to the file. If the file is seekable they
+// will also be in group_len or length_val format. If the file is not
+// seekable they will be in group_start/group_end format.
 
 class EXPORTFN Protobuf_writer {
 	struct Data;
@@ -97,21 +99,21 @@ class EXPORTFN Protobuf_writer {
 
 public:
 	// Groups may be written as length delimited triplets or as pairs of
-	// group_start/group_end triplets.  noseek tells the writer not to seek
-	// backwards in the file. In this case whenever a group start is
-	// written out to the file, it will stay there. In the case of seek
-	// when we finish the group we will go back to the tag written
-	// initially and will overwrite it with a group_len tag and the length.
-	// If nogroup is selected it will not write group_start/group_end tags,
-	// only group_len tags. If you select seek and the underlying stream
-	// does not allow seeking then group_start/group_end tags will be
-	// output. If you select nogroup and the underlying stream does not
-	// allow seeking then a std::runtime_error exception will be thrown.
-	// seek is the most general option: it creates length delimited
-	// triplets if possible but will fall back to group_start/group_end
-	// tags if the stream is not seekable. nogroup does not create
-	// group_start/group_end tags and may simplify processing at the
-	// reader, but does not work in non-seekable streams.
+	// group_start/group_end triplets. noseek tells the writer not to seek
+	// backwards in the file. In this case whenever a group start is written
+	// out to the file, it will stay there. In the case of seek when we
+	// finish the group we will go back to the tag written initially and
+	// will overwrite it with a group_len tag and the length. If nogroup is
+	// selected it will not write group_start/group_end tags, only group_len
+	// tags. If you select seek and the underlying stream does not allow
+	// seeking then group_start/group_end tags will be output. If you select
+	// nogroup and the underlying stream does not allow seeking then a
+	// std::runtime_error exception will be thrown. seek is the most general
+	// option: it creates length delimited triplets if possible but will
+	// fall back to group_start/group_end tags if the stream is not
+	// seekable. nogroup does not create group_start/group_end tags and may
+	// simplify processing at the reader, but does not work in non-seekable
+	// streams.
 
 	enum Group { noseek, seek, nogroup };
 
@@ -120,7 +122,7 @@ public:
 	// stream is in memory it will be compacted and optimized. Set gt as
 	// stated above. If you want to keep everything in memory then pass os==0
 	// and buffer_size == SIZE_MAX.
-	Protobuf_writer (std::ostream *os, Group gt, size_t buffer_size);
+	Protobuf_writer (std::ostream *os, Group gt, size_t buffer_size = 0x4000);
 	~Protobuf_writer();
 
 	// Use the group_len wire type instead of the length_val.
@@ -293,7 +295,9 @@ public:
 	int64_t read_zleb();
 	// Read the tag. If a group_len tag is found then we record the length
 	// to be read. When we have read the group_len bytes the function will
-	// return false.
+	// return false. If top_level is true then on encountering the end of
+	// the input stream it will check the requirements. If top level is not
+	// true then encountering the end of input will throw an exception.
 	bool read_tagval (uint32_t *tagwt, uint64_t *val, bool top_level=false);
 
 	// Read the value and store it in buf in little endian order. Return the
@@ -312,12 +316,18 @@ public:
 	// Skip the current item.
 	void skip (uint32_t tagwt, uint64_t val);
 
-	// If you are using group_len tags then read_tagval will be automatically 
-	// work as described above: returning false when the group has been read. 
-	// If you use length_val like in the original Google Protocol Buffers 
-	// then you can still have this translation if you call this function. At
-	// the start of a length_val item push this. n is the size of the data of
-	// the triplet. When we reach the end then read_tagval will return false.
+	// If you are using group_len tags then read_tagval will be automatically
+	// work as described above: returning false when the group has been
+	// read. When using length_val tags the program will also provide this
+	// behaviour if after the first call to read_tagval (the one that
+	// returned length_val) you immediately call again read_tagval()
+	// without consuming any input.
+
+	// If you use length_val like in the original Google Protocol Buffers
+	// then you can still have this translation at the top level if you call
+	// this function. At the start of a length delimited group push this. n
+	// is the size of the data of the triplet. When we reach the end then
+	// read_tagval will return false.
 	void push_scope (std::streamoff n=std::numeric_limits<std::streamoff>::max());
 
 	// At the start of a group you may set the requirements for some of the
@@ -346,7 +356,15 @@ union Cont64 {
 	double x;
 };
 
-// Do not convert. Just read the underlying bytes.
+// Do not convert. Just read the underlying bytes. This uses type punning
+// with unions, which is defined in C99 and C11 but is undefined behavior in
+// C++. GCC explicitly allows it in C++. Linux uses it and the Windows API
+// also has it. Therefore we just ignore the wording of the standard and use
+// type punning with unions. See https://lkml.org/lkml/2018/6/5/769 for a
+// strongly worded (but correct) opinion. The alternative is to use memcpy()
+// and rely on the undefined promise that the compiler will optimize it
+// away.
+
 inline uint32_t float2int (float x)
 {
 	Cont32 c;

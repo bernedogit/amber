@@ -347,11 +347,13 @@ void Protobuf_writer::write_packed_uint64 (uint64_t u)
 
 
 // write_float and write_double assume that the doubles and floats use the
-// IEEE representation in the cpu's native endianness.
+// IEEE representation in the cpu's native endianness. We use unions for
+// type punning. See the comment in the header file.
 
 void Protobuf_writer::write_float (unsigned id, float v)
 {
-	static_assert (sizeof(v) == sizeof(uint32_t), "We only support IEEE floating point");
+	static_assert (sizeof(v) == sizeof(uint32_t) && std::numeric_limits<float>::is_iec559,
+	               "A float must be in IEEE 32 bit format");
 	union {
 		float     f;
 		uint32_t  u;
@@ -363,7 +365,8 @@ void Protobuf_writer::write_float (unsigned id, float v)
 
 void Protobuf_writer::write_double (unsigned id, double v)
 {
-	static_assert(sizeof(v) == sizeof(uint64_t), "A double must be in IEEE 64 bit format");
+	static_assert(sizeof(v) == sizeof(uint64_t) && std::numeric_limits<double>::is_iec559,
+	              "A double must be in IEEE 64 bit format");
 	union {
 		double   f;
 		uint64_t u;
@@ -375,7 +378,8 @@ void Protobuf_writer::write_double (unsigned id, double v)
 
 void Protobuf_writer::write_packed_float (float v)
 {
-	static_assert(sizeof(v) == sizeof(uint32_t), "A float must be in IEEE 32 bit format");
+	static_assert(sizeof(v) == sizeof(uint32_t) && std::numeric_limits<float>::is_iec559,
+	              "A float must be in IEEE 32 bit format");
 	union {
 		float     f;
 		uint32_t  u;
@@ -387,7 +391,8 @@ void Protobuf_writer::write_packed_float (float v)
 
 void Protobuf_writer::write_packed_double (double v)
 {
-	static_assert(sizeof(v) == sizeof(uint64_t), "A double must be in IEEE 64 bit format");
+	static_assert(sizeof(v) == sizeof(uint64_t) && std::numeric_limits<double>::is_iec559,
+	            "A double must be in IEEE 64 bit format");
 	union {
 		double   f;
 		uint64_t u;
@@ -521,7 +526,7 @@ uint64_t Protobuf_reader::read_uleb()
 		while (data->current < data->limit) {
 			int ch;
 			if (data->pbuf < data->plim) {
-				ch = *data->pbuf++;
+				ch = (unsigned char) *data->pbuf++;
 			} else {
 				throw std::length_error ("EOF while reading a LEB128 number");
 			}
@@ -563,7 +568,7 @@ uint32_t Protobuf_reader::read_le32 (void *buf)
 		if (data->is) {
 			ch = data->is->get();
 		} else if (data->pbuf < data->plim) {
-			ch = *data->pbuf++;
+			ch = (unsigned char) *data->pbuf++;
 		} else {
 			ch = EOF;
 		}
@@ -593,7 +598,7 @@ uint64_t Protobuf_reader::read_le64 (void *buf)
 		if (data->is) {
 			ch = data->is->get();
 		} else if (data->pbuf < data->plim) {
-			ch = *data->pbuf++;
+			ch = (unsigned char) *data->pbuf++;
 		} else {
 			ch = EOF;
 		}
@@ -635,7 +640,7 @@ void Protobuf_reader::get_bytes (void *buf, std::streamoff n)
 
 void Protobuf_reader::skip (uint32_t tagwt, uint64_t val)
 {
-	uint32_t target, t;
+	uint32_t t;
 	uint64_t n;
 
 	switch (tagwt & 7) {
@@ -659,10 +664,9 @@ void Protobuf_reader::skip (uint32_t tagwt, uint64_t val)
 		break;
 
 	case group_start:
-		target = maketag (tagwt >> 3, group_end);
 		for (;;) {
 			read_tagval (&t, &n);
-			if (t == target) {
+			if ((t & 0x7) == group_end) {
 				break;
 			}
 			skip (t, n);
@@ -839,9 +843,8 @@ void Protobuf_reader::check_requirements()
 // of bytes used to encode the length and the tag.
 
 // If the wire type is group_start, it means that we start a group of
-// triplets, which ends when we encounter another tag with the same
-// identifier and the wire type group_end. Note that we may nest triplets in
-// this way.
+// triplets, which ends when we encounter another tag with the wire type
+// group_end. Note that we may nest triplets in this way.
 
 // It is possible to embed groups of triplets using either the group-start
 // and group-end tags or by putting the whole group into a length_val
