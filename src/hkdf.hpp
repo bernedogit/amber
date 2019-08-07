@@ -65,26 +65,31 @@ void Hmac<Hash>::reset (const void *keyb, size_t nbytes)
 		memset (key + nbytes, 0, sizeof key - nbytes);
 	}
 
+	uint8_t k2[Hash::blocklen];
 	for (size_t i = 0; i < sizeof key; ++i) {
-		key[i] ^= 0x36;
+		k2[i] = key[i] ^ 0x36;
 	}
-	h.update (key, sizeof key);
+	h.update (k2, sizeof k2);
 }
 
 template <class Hash>
 void Hmac<Hash>::final (uint8_t *mac, size_t n)
 {
+	uint8_t k2[Hash::blocklen];
 	for (size_t i = 0; i < sizeof key; ++i) {
-		key[i] ^= 0x36;
-		key[i] ^= 0x5c;
+		k2[i] = key[i] ^ 0x5c;
 	}
 	uint8_t tag[Hash::hashlen];
 	h.final (tag);
 	h.reset();
-	h.update (key, sizeof key);
+	h.update (k2, sizeof k2);
 	h.update (tag, sizeof tag);
-	h.final (tag);
-	memcpy (mac, tag, n > (unsigned)Hash::hashlen ? (unsigned)Hash::hashlen : n);
+	if (n == Hash::hashlen) {
+		h.final (mac);
+	} else {
+		h.final (tag);
+		memcpy (mac, tag, n > (unsigned)Hash::hashlen ? (unsigned)Hash::hashlen : n);
+	}
 }
 
 // RFC 5869

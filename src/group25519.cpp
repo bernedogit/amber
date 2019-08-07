@@ -411,7 +411,7 @@ std::ostream & operator<< (std::ostream &os, const Edwards &rhs)
 			os << ' ';
 			count = 0;
 		}
-    }
+	}
 	os << std::dec << std::setfill (' ');
 	return os;
 }
@@ -2053,7 +2053,8 @@ int ristretto_to_edwards (Edwards &res, const uint8_t sc[32])
 
 	Fe insrt, vu22;
 	mul (vu22, v, u2_sqr);
-	int not_square = sqrt_ratio_m1 (insrt, feone, vu22);
+//    int not_square = sqrt_ratio_m1 (insrt, feone, vu22);
+	int not_square = invsqrt (insrt, vu22);
 
 	Fe den_x, den_y;
 	mul (den_x, insrt, u2);
@@ -2161,7 +2162,8 @@ int ristretto_to_mont (Edwards &ed, Fe &u, Fe &v, const uint8_t sc[32])
 	// I = 1 / sqrt (u₃*u₄²)
 	square (is, u4);
 	mul (is, is, u3);
-	int not_square = sqrt_ratio_m1 (I, feone, is);
+//    int not_square = sqrt_ratio_m1 (I, feone, is);
+	int not_square = invsqrt (I, is);
 
 	// w₁ = I*u₂ = Iu₂
 	mul (w1, I, u2);

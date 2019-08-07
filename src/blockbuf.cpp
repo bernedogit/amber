@@ -263,12 +263,7 @@ int Blockbuf::overflow(int ch)
 		if (ptrdiff_t(payload_bytes + block_filler) > mlen) {
 			mlen = payload_bytes + block_filler;
 		}
-		if (block_filler >= 4) {
-			leput32 (&buf[0], mlen);
-			krand.get_bytes (&buf[4], block_filler - 4);
-		} else {
-			krand.get_bytes (&buf[0], block_filler);
-		}
+		krand.get_bytes (&buf[0], block_filler);
 		encrypt_multi((uint8_t*)&buf[0], (uint8_t*)&buf[0], mlen, &type, 1,
 		              keyw, &kaw[0], nka, nonce64++);
 
@@ -344,12 +339,7 @@ bool Blockbuf::flush_current(bool last)
 			}
 		}
 	}
-	if (block_filler >= 4) {
-		leput32 (&buf[0], mlen);
-		krand.get_bytes (&buf[4], block_filler - 4);
-	} else {
-		krand.get_bytes (&buf[0], block_filler);
-	}
+	krand.get_bytes (&buf[0], block_filler);
 	encrypt_multi((uint8_t*)&buf[0], (uint8_t*)&buf[0], mlen, &type, 1,
 	              keyw, &kaw[0], nka, (nonce64++) + nm);
 
@@ -387,9 +377,6 @@ void Blockbuf::close()
 			uint8_t type = 3;
 			uint64_t nm = ndelta;
 			size_t mlen = block_filler;
-			if (block_filler >= 4) {
-				leput32 (&buf[0], mlen);
-			}
 			encrypt_multi((uint8_t*)&buf[0], (uint8_t*)&buf[0], mlen, &type, 1,
 			              keyw, &kaw[0], nka, (nonce64++) + nm);
 

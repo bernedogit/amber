@@ -256,22 +256,23 @@ void Hmac<H>::reset (const uint8_t *k, size_t n)
 		memcpy (key, k, n);
 		memset (key + n, 0, sizeof key - n);
 	}
+	uint8_t k2[H::blocklen];
 	for (size_t i = 0; i < sizeof key; ++i) {
-		key[i] ^= 0x36;
+		k2[i] = key[i] ^ 0x36;
 	}
 	blake.reset (H::hashlen, NULL, 0);
-	blake.update (key, sizeof key);
+	blake.update (k2, sizeof k2);
 }
 template <class H>
 void Hmac<H>::final (uint8_t *mac)
 {
+	uint8_t k2[H::blocklen];
 	for (size_t i = 0; i < sizeof key; ++i) {
-		key[i] ^= 0x36;
-		key[i] ^= 0x5c;
+		k2[i] = key[i] ^ 0x5c;
 	}
 	blake.final (mac);
 	blake.reset (H::hashlen, NULL, 0);
-	blake.update (key, sizeof key);
+	blake.update (k2, sizeof k2);
 	blake.update (mac, H::hashlen);
 	blake.final (mac);
 }
@@ -282,30 +283,26 @@ class EXPORTFN Hkdf {
 	uint8_t prk[BLK::hashlen], last[BLK::hashlen];
 	int last_size;
 	unsigned char block_number;
-	std::vector<uint8_t> infov;
 public:
 	enum { hashlen = BLK::hashlen };
 	Hkdf (const uint8_t *salt, size_t nsalt) : hmac (salt, nsalt) {}
 	void reset (const uint8_t *salt, size_t nsalt) { hmac.reset (salt, nsalt); }
 	void add_input (const uint8_t *ikm, size_t n) { hmac.update (ikm, n); }
-	void switch_to_output (const uint8_t *info=0, size_t ninfo=0);
+	void switch_to_output();
 	const uint8_t * output_block();
 };
 template <class BLK>
-void Hkdf<BLK>::switch_to_output (const uint8_t *info, size_t ninfo)
+void Hkdf<BLK>::switch_to_output ()
 {
 	hmac.final (prk);
 	last_size = 0;
 	block_number = 1;
-	infov.resize (ninfo);
-	memcpy (&infov[0], info, ninfo);
 }
 template <class BLK>
 const uint8_t * Hkdf<BLK>::output_block()
 {
 	hmac.reset (prk, hmac.hashlen);
 	hmac.update (last, last_size);
-	hmac.update (&infov[0], infov.size());
 	hmac.update (&block_number, 1);
 	hmac.final (last);
 	last_size = hashlen;
